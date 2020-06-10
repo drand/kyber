@@ -1,7 +1,6 @@
 package dkg
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -102,7 +101,6 @@ func SetupProto(tns []*TestNode, dkgC *DkgConfig, protoC *Config, period time.Du
 		n.clock = clock
 		n.phaser = NewTimePhaserFunc(func(Phase) {
 			clock.Sleep(period)
-			fmt.Printf(" - finished sleeping\n")
 		})
 		n.board = network.BoardFor(n.Index)
 		c2 := *protoC
@@ -230,7 +228,7 @@ func TestProtoResharing(t *testing.T) {
 	}
 	testResults(t, suite, thr, n, results)
 
-	fmt.Printf("\n\n ----- RESHARING ----\n\n")
+	//fmt.Printf("\n\n ----- RESHARING ----\n\n")
 	// RESHARING
 	// we setup now the second group with one node left from old group and two
 	// new node
@@ -286,7 +284,6 @@ func TestProtoResharing(t *testing.T) {
 	for optRes := range resCh {
 		require.NoError(t, optRes.Error)
 		results = append(results, optRes.Result)
-		fmt.Printf("GOT %d RESULTS\n", len(results))
 		if len(results) == newN {
 			break
 		}

@@ -1,8 +1,10 @@
 package dkg
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -140,9 +142,10 @@ type DistKeyGenerator struct {
 	validShares map[uint32]kyber.Scalar
 	// all public polynomials we have seen
 	allPublics map[uint32]*share.PubPoly
-	// list of dealers that clearly gave invalid deals / responses / justifs
-	evicted []uint32
-	state   Phase
+	// list of evicted share holders
+	evicted []Index
+	// state of where the DKG is at
+	state Phase
 	// index in the old list of nodes
 	oidx Index
 	// index in the new list of nodes
@@ -165,6 +168,8 @@ type DistKeyGenerator struct {
 	processed bool
 	// public polynomial of the old group
 	olddpub *share.PubPoly
+	// sessionID for the current run
+	sessionID []byte
 }
 
 // NewDistKeyHandler takes a DkgConfig and returns a DistKeyGenerator that is able
@@ -303,6 +308,7 @@ func NewDistKeyHandler(c *DkgConfig) (*DistKeyGenerator, error) {
 		statuses:    statuses,
 		validShares: make(map[uint32]kyber.Scalar),
 		allPublics:  make(map[uint32]*share.PubPoly),
+		sessionID:   getSessionID(c.OldNodes, c.NewNodes),
 	}
 	return dkg, err
 }
@@ -344,6 +350,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 		DealerIndex: uint32(d.oidx),
 		Deals:       deals,
 		Public:      commits,
+		SessionID:   d.sessionID,
 	}, nil
 }
 
@@ -377,22 +384,22 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 			// dont look at our own deal
 			continue
 		}
+
 		if !isIndexIncluded(d.c.OldNodes, bundle.DealerIndex) {
 			continue
 		}
+
+		if bytes.Compare(bundle.SessionID, d.sessionID) != 0 {
+			continue
+		}
+
 		if bundle.Public == nil || len(bundle.Public) != d.c.Threshold {
 			// invalid public polynomial is clearly cheating
-			// so we evict him from the list
-			// since we assume broadcast channel, every honest player will evict
-			// this party as well
-			d.evicted = append(d.evicted, bundle.DealerIndex)
 			continue
 		}
 		pubPoly := share.NewPubPoly(d.c.Suite, d.c.Suite.Point().Base(), bundle.Public)
 		if seenIndex[bundle.DealerIndex] {
 			// already saw a bundle from the same dealer - clear sign of
-			// cheating so we evict him from the list
-			d.evicted = append(d.evicted, bundle.DealerIndex)
 			continue
 		}
 		seenIndex[bundle.DealerIndex] = true
@@ -401,9 +408,6 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		for _, deal := range bundle.Deals {
 			if !isIndexIncluded(d.c.NewNodes, deal.ShareIndex) {
 				// invalid index for share holder is a clear sign of cheating
-				// so we evict him from the list
-				// and we don't even need to look at the rest
-				d.evicted = append(d.evicted, bundle.DealerIndex)
 				break
 			}
 			if deal.ShareIndex != uint32(d.nidx) {
@@ -457,13 +461,6 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 	var responses []Response
 	var myshares = d.statuses.StatusesForShare(uint32(d.nidx))
 	for _, node := range d.c.OldNodes {
-		// if the node is evicted, we don't even need to send a complaint or a
-		// response response since every honest node evicts him as well.
-		// XXX Is that always true ? Should we send a complaint still ?
-		if d.isEvicted(node.Index) {
-			continue
-		}
-
 		if myshares[node.Index] {
 			if d.c.FastSync {
 				// we send success responses only in fast sync
@@ -485,6 +482,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		bundle = &ResponseBundle{
 			ShareIndex: uint32(d.nidx),
 			Responses:  responses,
+			SessionID:  d.sessionID,
 		}
 	}
 	d.state = ResponsePhase
@@ -526,6 +524,11 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 			continue
 		}
 		if !isIndexIncluded(d.c.NewNodes, bundle.ShareIndex) {
+			continue
+		}
+
+		if bytes.Compare(bundle.SessionID, d.sessionID) != 0 {
+			d.evicted = append(d.evicted, bundle.ShareIndex)
 			continue
 		}
 
@@ -596,6 +599,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 	var bundle = JustificationBundle{
 		DealerIndex:    uint32(d.oidx),
 		Justifications: justifications,
+		SessionID:      d.sessionID,
 	}
 	return nil, &bundle, nil
 }
@@ -623,10 +627,14 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		}
 		if seen[bundle.DealerIndex] {
 			// bundle contains duplicate - clear violation
-			// so we evict
-			d.evicted = append(d.evicted, bundle.DealerIndex)
 			continue
 		}
+
+		if bytes.Compare(bundle.SessionID, d.sessionID) != 0 {
+			// dealer doesn't use the right sessionID
+			continue
+		}
+
 		if d.canIssue && bundle.DealerIndex == uint32(d.oidx) {
 			// we dont treat our own justifications
 			continue
@@ -635,33 +643,28 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 			// index is invalid
 			continue
 		}
-		if d.isEvicted(bundle.DealerIndex) {
-			// already evicted node
-			continue
-		}
+
 		seen[bundle.DealerIndex] = true
 		for _, justif := range bundle.Justifications {
+
 			if !isIndexIncluded(d.c.NewNodes, justif.ShareIndex) {
 				// invalid index - clear violation
-				// so we evict
-				d.evicted = append(d.evicted, bundle.DealerIndex)
 				continue
 			}
 			pubPoly, ok := d.allPublics[bundle.DealerIndex]
 			if !ok {
 				// dealer hasn't given any public polynomial at the first phase
-				// so we evict directly - no need to look at its justifications
-				d.evicted = append(d.evicted, bundle.DealerIndex)
 				break
 			}
+
 			// compare commit and public poly
 			commit := d.c.Suite.Point().Mul(justif.Share, nil)
 			expected := pubPoly.Eval(int(justif.ShareIndex)).V
 			if !commit.Equal(expected) {
-				// invalid justification - evict
-				d.evicted = append(d.evicted, bundle.DealerIndex)
+				// invalid justification
 				continue
 			}
+
 			if d.isResharing {
 				// check that the evaluation this public polynomial at 0,
 				// corresponds to the commitment of the previous the dealer's index
@@ -669,7 +672,6 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 				publicCommit := pubPoly.Commit()
 				if !oldShareCommit.Equal(publicCommit) {
 					// inconsistent share from old member
-					d.evicted = append(d.evicted, bundle.DealerIndex)
 					continue
 				}
 			}
@@ -685,9 +687,6 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 	// check if there is enough dealer entries marked as all success
 	var allGood int
 	for _, n := range d.c.OldNodes {
-		if d.isEvicted(n.Index) {
-			continue
-		}
 		if !d.statuses.AllTrue(n.Index) {
 			// this dealer has some unjustified shares
 			continue
@@ -711,9 +710,6 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 }
 
 func (d *DistKeyGenerator) computeResult() (*Result, error) {
-	defer func() {
-		//fmt.Printf("Node %d: AFTER compute results\n%s\n", d.nidx, d.statuses)
-	}()
 	d.state = FinishPhase
 	// add a full complaint row on the nodes that are evicted
 	for _, index := range d.evicted {
@@ -739,6 +735,7 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 			// this dealer has some unjustified shares
 			continue
 		}
+
 		pub, ok := d.allPublics[n.Index]
 		if !ok {
 			return nil, fmt.Errorf("BUG: nidx %d: public polynomial not found from dealer %d", d.nidx, n.Index)
@@ -817,6 +814,8 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 				break
 			}
 		}
+
+		invalid = invalid || isEvicted(d.evicted, newNode.Index)
 		if !invalid {
 			qual = append(qual, newNode)
 		}
@@ -840,6 +839,12 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 			// this dealer has some unjustified shares
 			continue
 		}
+
+		if isEvicted(d.evicted, n.Index) {
+			// this dealer behaved abnormaly in the response phase
+			continue
+		}
+
 		sh, ok := d.validShares[n.Index]
 		if !ok {
 			return nil, fmt.Errorf("BUG: private share not found from dealer %d", n.Index)
@@ -913,6 +918,29 @@ func isIndexIncluded(list []Node, index uint32) bool {
 func (d *DistKeyGenerator) isEvicted(node uint32) bool {
 	for _, idx := range d.evicted {
 		if node == idx {
+			return true
+		}
+	}
+	return false
+}
+
+func getSessionID(oldN, newN []Node) []byte {
+	h := sha256.New()
+	for _, n := range oldN {
+		binary.Write(h, binary.BigEndian, n.Index)
+		n.Public.MarshalTo(h)
+	}
+
+	for _, n := range newN {
+		binary.Write(h, binary.BigEndian, n.Index)
+		n.Public.MarshalTo(h)
+	}
+	return h.Sum(nil)
+}
+
+func isEvicted(list []Index, idx Index) bool {
+	for _, evicted := range list {
+		if evicted == idx {
 			return true
 		}
 	}
