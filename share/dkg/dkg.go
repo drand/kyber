@@ -954,8 +954,14 @@ func (d *DistKeyGenerator) isEvicted(node uint32) bool {
 const NonceLength = 32
 
 // GetNonce returns a suitable nonce to feed in the DKG config.
-func GetNonce() ([]byte, error) {
+func GetNonce() []byte {
 	var nonce [NonceLength]byte
-	_, err := rand.Read(nonce[:])
-	return nonce[:], err
+	n, err := rand.Read(nonce[:])
+	if n != NonceLength {
+		panic("could not read enough random bytes for nonce")
+	}
+	if err != nil {
+		panic(err)
+	}
+	return nonce[:]
 }

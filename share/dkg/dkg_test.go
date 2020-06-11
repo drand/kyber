@@ -56,7 +56,7 @@ func NodesFromTest(tns []*TestNode) []Node {
 
 // inits the dkg structure
 func SetupNodes(nodes []*TestNode, c *DkgConfig) {
-	nonce, _ := GetNonce()
+	nonce := GetNonce()
 	for _, n := range nodes {
 		c2 := *c
 		c2.Longterm = n.Private
@@ -70,7 +70,7 @@ func SetupNodes(nodes []*TestNode, c *DkgConfig) {
 }
 
 func SetupReshareNodes(nodes []*TestNode, c *DkgConfig, coeffs []kyber.Point) {
-	nonce, _ := GetNonce()
+	nonce := GetNonce()
 	for _, n := range nodes {
 		c2 := *c
 		c2.Longterm = n.Private
@@ -431,7 +431,7 @@ func TestDKGNonceInvalid(t *testing.T) {
 		NewNodes:  list,
 		Threshold: thr,
 	}
-	nonce, _ := GetNonce()
+	nonce := GetNonce()
 	conf.Nonce = nonce
 	conf.Longterm = tns[0].Private
 	conf.Nonce = nonce
