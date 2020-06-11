@@ -845,13 +845,13 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 	for _, n := range d.c.OldNodes {
 		if !d.statuses.AllTrue(n.Index) {
 			// this dealer has some unjustified shares
-			// no need to check for th e evicted list since the status matrix
+			// no need to check the evicted list since the status matrix
 			// has been set previously to complaint for those
 			continue
 		}
 
 		// however we do need to check for evicted share holders since in this
-		// case (DKG) both set are the same.
+		// case (DKG) both are the same.
 		if isEvicted(d.evictedHolders, n.Index) {
 			continue
 		}
