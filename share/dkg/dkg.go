@@ -1,6 +1,7 @@
 package dkg
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
@@ -76,14 +77,16 @@ type DkgConfig struct {
 	// the number of deals required is less than what it is supposed to be.
 	OldThreshold int
 
-	// Reader is an optional field that can hold a user-specified entropy source.
-	// If it is set, Reader's data will be combined with random data from crypto/rand
-	// to create a random stream which will pick the dkg's secret coefficient. Otherwise,
-	// the random stream will only use crypto/rand's entropy.
+	// Reader is an optional field that can hold a user-specified entropy
+	// source.  If it is set, Reader's data will be combined with random data
+	// from crypto/rand to create a random stream which will pick the dkg's
+	// secret coefficient. Otherwise, the random stream will only use
+	// crypto/rand's entropy.
 	Reader io.Reader
 
-	// When UserReaderOnly it set to true, only the user-specified entropy source
-	// Reader will be used. This should only be used in tests, allowing reproducibility.
+	// When UserReaderOnly it set to true, only the user-specified entropy
+	// source Reader will be used. This should only be used in tests, allowing
+	// reproducibility.
 	UserReaderOnly bool
 
 	// FastSync is a mode where nodes sends pre-emptively responses indicating
@@ -95,6 +98,11 @@ type DkgConfig struct {
 	//  pass from a O(f) where f is the number of faults to a O(n^2). Note that
 	//  the responses messages are small.
 	FastSync bool
+
+	// Nonce is required to avoid replay attacks from previous runs of a DKG /
+	// resharing. A Nonce must be of length 32 bytes. User can get a secure
+	// nonce by calling `GetNonce()`.
+	Nonce []byte
 }
 
 // Phase is a type that represents the different stages of the DKG protocol.
@@ -172,6 +180,9 @@ type DistKeyGenerator struct {
 func NewDistKeyHandler(c *DkgConfig) (*DistKeyGenerator, error) {
 	if c.NewNodes == nil && c.OldNodes == nil {
 		return nil, errors.New("dkg: can't run with empty node list")
+	}
+	if len(c.Nonce) != NonceLength {
+		return nil, errors.New("dkg: invalid nonce length")
 	}
 
 	var isResharing bool
@@ -344,6 +355,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 		DealerIndex: uint32(d.oidx),
 		Deals:       deals,
 		Public:      commits,
+		SessionID:   d.c.Nonce,
 	}, nil
 }
 
@@ -380,6 +392,12 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		if !isIndexIncluded(d.c.OldNodes, bundle.DealerIndex) {
 			continue
 		}
+
+		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
+			d.evicted = append(d.evicted, bundle.DealerIndex)
+			continue
+		}
+
 		if bundle.Public == nil || len(bundle.Public) != d.c.Threshold {
 			// invalid public polynomial is clearly cheating
 			// so we evict him from the list
@@ -485,6 +503,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		bundle = &ResponseBundle{
 			ShareIndex: uint32(d.nidx),
 			Responses:  responses,
+			SessionID:  d.c.Nonce,
 		}
 	}
 	d.state = ResponsePhase
@@ -526,6 +545,12 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 			continue
 		}
 		if !isIndexIncluded(d.c.NewNodes, bundle.ShareIndex) {
+			continue
+		}
+
+		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
+			// XXX for the moment we continue,
+			// TODO: fix it with a proper eviction list of share holders
 			continue
 		}
 
@@ -596,6 +621,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 	var bundle = JustificationBundle{
 		DealerIndex:    uint32(d.oidx),
 		Justifications: justifications,
+		SessionID:      d.c.Nonce,
 	}
 	return nil, &bundle, nil
 }
@@ -639,6 +665,11 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 			// already evicted node
 			continue
 		}
+		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
+			d.evicted = append(d.evicted, bundle.DealerIndex)
+			continue
+		}
+
 		seen[bundle.DealerIndex] = true
 		for _, justif := range bundle.Justifications {
 			if !isIndexIncluded(d.c.NewNodes, justif.ShareIndex) {
@@ -917,4 +948,14 @@ func (d *DistKeyGenerator) isEvicted(node uint32) bool {
 		}
 	}
 	return false
+}
+
+// NonceLength is the length of the nonce
+const NonceLength = 32
+
+// GetNonce returns a suitable nonce to feed in the DKG config.
+func GetNonce() ([]byte, error) {
+	var nonce [NonceLength]byte
+	_, err := rand.Read(nonce[:])
+	return nonce[:], err
 }

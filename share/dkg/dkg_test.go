@@ -56,9 +56,11 @@ func NodesFromTest(tns []*TestNode) []Node {
 
 // inits the dkg structure
 func SetupNodes(nodes []*TestNode, c *DkgConfig) {
+	nonce, _ := GetNonce()
 	for _, n := range nodes {
 		c2 := *c
 		c2.Longterm = n.Private
+		c2.Nonce = nonce
 		dkg, err := NewDistKeyHandler(&c2)
 		if err != nil {
 			panic(err)
@@ -68,9 +70,11 @@ func SetupNodes(nodes []*TestNode, c *DkgConfig) {
 }
 
 func SetupReshareNodes(nodes []*TestNode, c *DkgConfig, coeffs []kyber.Point) {
+	nonce, _ := GetNonce()
 	for _, n := range nodes {
 		c2 := *c
 		c2.Longterm = n.Private
+		c2.Nonce = nonce
 		if n.res != nil {
 			c2.Share = n.res.Key
 		} else {
