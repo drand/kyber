@@ -444,3 +444,68 @@ func TestDKGNonceInvalid(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, dkg)
 }
+
+func TestDKGNonceInvalidEviction(t *testing.T) {
+	n := 7
+	thr := 4
+	suite := edwards25519.NewBlakeSHA256Ed25519()
+	tns := GenerateTestNodes(suite, n)
+	list := NodesFromTest(tns)
+	conf := DkgConfig{
+		Suite:     suite,
+		NewNodes:  list,
+		Threshold: thr,
+	}
+
+	genPublic := func() []kyber.Point {
+		points := make([]kyber.Point, thr)
+		for i := 0; i < thr; i++ {
+			points[i] = suite.Point().Pick(random.New())
+		}
+		return points
+	}
+
+	dm := func(deals []*DealBundle) []*DealBundle {
+		deals[0].SessionID = []byte("Beat It")
+		require.Equal(t, deals[0].DealerIndex, Index(0))
+		// change the public polynomial so it trigggers a response and a
+		// justification
+		deals[1].Public = genPublic()
+		require.Equal(t, deals[1].DealerIndex, Index(1))
+		return deals
+	}
+	rm := func(resp []*ResponseBundle) []*ResponseBundle {
+		for _, bundle := range resp {
+			for _, r := range bundle.Responses {
+				// he's evicted so there's not even a complaint
+				require.NotEqual(t, 0, r.DealerIndex)
+			}
+			if bundle.ShareIndex == 2 {
+				bundle.SessionID = []byte("Billie Jean")
+			}
+		}
+		return resp
+	}
+	jm := func(just []*JustificationBundle) []*JustificationBundle {
+		require.Len(t, just, 1)
+		just[0].SessionID = []byte("Free")
+		return just
+	}
+
+	results := RunDKG(t, tns, conf, dm, rm, jm)
+	// make sure the first, second, and third node are not here
+	isEvicted := func(i Index) bool {
+		return i == 0 || i == 1 || i == 2
+	}
+	filtered := results[:0]
+	for _, r := range results {
+		if isEvicted(Index(r.Key.Share.I)) {
+			continue
+		}
+		require.NotContains(t, r.QUAL, Index(0))
+		require.NotContains(t, r.QUAL, Index(1))
+		require.NotContains(t, r.QUAL, Index(2))
+		filtered = append(filtered, r)
+	}
+	testResults(t, suite, thr, n, filtered)
+}
