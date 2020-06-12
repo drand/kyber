@@ -369,7 +369,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 		SessionID:   d.c.Nonce,
 	}
 	var err error
-	bundle.Signature, err = d.signIt(bundle)
+	bundle.Signature, err = d.sign(bundle)
 	return bundle, err
 }
 
@@ -519,7 +519,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 			Responses:  responses,
 			SessionID:  d.c.Nonce,
 		}
-		sig, err := d.signIt(bundle)
+		sig, err := d.sign(bundle)
 		if err != nil {
 			return nil, err
 		}
@@ -643,7 +643,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		SessionID:      d.c.Nonce,
 	}
 
-	signature, err := d.signIt(bundle)
+	signature, err := d.sign(bundle)
 	bundle.Signature = signature
 	return nil, bundle, err
 }
