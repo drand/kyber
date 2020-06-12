@@ -94,6 +94,10 @@ type Deal struct {
 	EncryptedShare []byte
 }
 
+var _ packet = (*DealBundle)(nil)
+
+// DealBundle is the struct sent out by dealers that contains all the deals and
+// the public polynomial.
 type DealBundle struct {
 	DealerIndex uint32
 	Deals       []Deal
@@ -135,6 +139,10 @@ type Response struct {
 	Status      bool
 }
 
+var _ packet = (*ResponseBundle)(nil)
+
+// ResponseBundle is the struct sent out by share holder containing the status
+// for the deals received in the first phase.
 type ResponseBundle struct {
 	// Index of the share holder for which these reponses are for
 	ShareIndex uint32
@@ -177,6 +185,10 @@ func (b *ResponseBundle) String() string {
 	return s
 }
 
+var _ packet = (*JustificationBundle)(nil)
+
+// JustificationBundle is the struct that contains all justifications for each
+// complaint in the precedent phase.
 type JustificationBundle struct {
 	DealerIndex    uint32
 	Justifications []Justification

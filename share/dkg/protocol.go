@@ -415,10 +415,6 @@ type packet interface {
 	Index() Index
 }
 
-var _ packet = (*DealBundle)(nil)
-var _ packet = (*ResponseBundle)(nil)
-var _ packet = (*JustificationBundle)(nil)
-
 type set struct {
 	vals map[Index]packet
 	bad  []Index
