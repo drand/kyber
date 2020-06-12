@@ -452,6 +452,30 @@ func TestDKGNonceInvalid(t *testing.T) {
 	require.Nil(t, dkg)
 }
 
+func TestDKGAbsentAuth(t *testing.T) {
+	n := 5
+	thr := n
+	suite := edwards25519.NewBlakeSHA256Ed25519()
+	tns := GenerateTestNodes(suite, n)
+	list := NodesFromTest(tns)
+	conf := &Config{
+		FastSync:  true,
+		Suite:     suite,
+		NewNodes:  list,
+		Threshold: thr,
+		Nonce:     GetNonce(),
+		Longterm:  tns[0].Private,
+	}
+	dkg, err := NewDistKeyHandler(conf)
+	require.Error(t, err)
+	require.Nil(t, dkg)
+
+	conf.Auth = schnorr.NewScheme(suite)
+	dkg, err = NewDistKeyHandler(conf)
+	require.NoError(t, err)
+	require.NotNil(t, dkg)
+}
+
 func TestDKGNonceInvalidEviction(t *testing.T) {
 	n := 7
 	thr := 4
