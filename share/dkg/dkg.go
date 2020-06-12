@@ -1002,7 +1002,7 @@ func GetNonce() []byte {
 	return nonce[:]
 }
 
-func (d *DistKeyGenerator) signIt(p packet) ([]byte, error) {
+func (d *DistKeyGenerator) sign(p packet) ([]byte, error) {
 	msg := p.Hash()
 	priv := d.c.Longterm
 	return d.c.Auth.Sign(priv, msg)
