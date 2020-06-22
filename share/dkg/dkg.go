@@ -408,9 +408,11 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		}
 
 		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
+			fmt.Printf("\n\nSESSION ID NOT EQUAL%x vs %x locally\n\n", bundle.SessionID, d.c.Nonce)
 			d.evicted = append(d.evicted, bundle.DealerIndex)
 			continue
 		}
+		fmt.Printf("\n\nSESSION ID NOT EQUAL\n\n")
 
 		if bundle.Public == nil || len(bundle.Public) != d.c.Threshold {
 			// invalid public polynomial is clearly cheating
@@ -607,6 +609,17 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 			return nil, nil, nil
 		}
 	}
+
+	// check if there are some node who received at least t complaints.
+	// In that case, they must be evicted already since their polynomial can
+	// now be reconstructed so any observer can sign in its place.
+	for _, n := range d.c.OldNodes {
+		complaints := d.statuses.StatusesOfDealer(n.Index).LengthComplaints()
+		if complaints >= d.c.Threshold {
+			d.evicted = append(d.evicted, n.Index)
+		}
+	}
+
 	d.state = JustifPhase
 
 	if !d.canIssue {
