@@ -340,7 +340,6 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 	for _, node := range d.c.NewNodes {
 		// compute share
 		si := d.dpriv.Eval(int(node.Index)).V
-		//fmt.Printf("\t- sending to %d: %s\n", node.Index, si.String())
 
 		if d.canReceive && uint32(d.nidx) == node.Index {
 			d.validShares[d.oidx] = si
@@ -408,11 +407,9 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		}
 
 		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
-			fmt.Printf("\n\nSESSION ID NOT EQUAL%x vs %x locally\n\n", bundle.SessionID, d.c.Nonce)
 			d.evicted = append(d.evicted, bundle.DealerIndex)
 			continue
 		}
-		fmt.Printf("\n\nSESSION ID NOT EQUAL\n\n")
 
 		if bundle.Public == nil || len(bundle.Public) != d.c.Threshold {
 			// invalid public polynomial is clearly cheating
@@ -431,7 +428,6 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		}
 		seenIndex[bundle.DealerIndex] = true
 		d.allPublics[bundle.DealerIndex] = pubPoly
-		//fmt.Printf("\t - Looking at deals from %d\n", bundle.DealerIndex)
 		for _, deal := range bundle.Deals {
 			if !isIndexIncluded(d.c.NewNodes, deal.ShareIndex) {
 				// invalid index for share holder is a clear sign of cheating
