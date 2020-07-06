@@ -253,10 +253,6 @@ type Packet interface {
 // signature. The signature is verified via the information contained in the
 // config, namely the old and new nodes public keys.
 func VerifyPacketSignature(c *Config, p Packet) error {
-	if c.SkipSignatureVerification {
-		return nil
-	}
-
 	// this method returns the correct dealers wether this config is for a DKG
 	// or a resharing. For a DKG, OldNodes is set to nil, so the new nodes are
 	// the ones that are going to be dealers as well.

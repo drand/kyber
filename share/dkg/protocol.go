@@ -2,7 +2,6 @@ package dkg
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -72,11 +71,12 @@ func (t *TimePhaser) NextPhase() chan Phase {
 // phases and the termination. A protocol can be ran over a network, a smart
 // contract, or anything else that is implemented via the Board interface.
 type Protocol struct {
-	board    Board
-	phaser   Phaser
-	dkg      *DistKeyGenerator
-	canIssue bool
-	res      chan OptionResult
+	board     Board
+	phaser    Phaser
+	dkg       *DistKeyGenerator
+	canIssue  bool
+	res       chan OptionResult
+	skipVerif bool
 }
 
 // XXX TO DELETE
@@ -88,21 +88,18 @@ func printNodes(list []Node) string {
 	return strings.Join(arr, "\n")
 }
 
-func NewProtocol(c *Config, b Board, phaser Phaser) (*Protocol, error) {
+func NewProtocol(c *Config, b Board, phaser Phaser, skipVerification bool) (*Protocol, error) {
 	dkg, err := NewDistKeyHandler(c)
 	if err != nil {
 		return nil, err
 	}
-	// fast sync must only be enabled if there is an authentication scheme
-	if c.FastSync && c.Auth == nil {
-		return nil, errors.New("fast sync only allowed with authentication enabled")
-	}
 	p := &Protocol{
-		board:    b,
-		phaser:   phaser,
-		dkg:      dkg,
-		canIssue: dkg.canIssue,
-		res:      make(chan OptionResult, 1),
+		board:     b,
+		phaser:    phaser,
+		dkg:       dkg,
+		canIssue:  dkg.canIssue,
+		res:       make(chan OptionResult, 1),
+		skipVerif: skipVerification,
 	}
 	go p.Start()
 	return p, nil
@@ -138,15 +135,15 @@ func (p *Protocol) Start() {
 				return
 			}
 		case newDeal := <-p.board.IncomingDeal():
-			if err := VerifyPacketSignature(p.dkg.c, &newDeal); err == nil {
+			if err := p.verify(&newDeal); err == nil {
 				deals.Push(&newDeal)
 			}
 		case newResp := <-p.board.IncomingResponse():
-			if err := VerifyPacketSignature(p.dkg.c, &newResp); err == nil {
+			if err := p.verify(&newResp); err == nil {
 				resps.Push(&newResp)
 			}
 		case newJust := <-p.board.IncomingJustification():
-			if err := VerifyPacketSignature(p.dkg.c, &newJust); err == nil {
+			if err := p.verify(&newJust); err == nil {
 				justifs.Push(&newJust)
 			}
 		}
@@ -209,20 +206,16 @@ func (p *Protocol) startFast() {
 				return
 			}
 		case newDeal := <-p.board.IncomingDeal():
-			if err := VerifyPacketSignature(p.dkg.c, &newDeal); err == nil {
+			if err := p.verify(&newDeal); err == nil {
 				deals.Push(&newDeal)
 			}
-			// XXX This assumes we receive our own deal bundle since we use a
-			// broadcast channel - may need to revisit that assumption
 			if deals.Len() == oldN {
 				if !sendResponseFn() {
 					return
 				}
 			}
 		case newResp := <-p.board.IncomingResponse():
-			// TODO See how can we deal with inconsistent answers from different
-			// share holders
-			if err := VerifyPacketSignature(p.dkg.c, &newResp); err == nil {
+			if err := p.verify(&newResp); err == nil {
 				resps.Push(&newResp)
 			}
 			if resps.Len() == newN {
@@ -231,9 +224,7 @@ func (p *Protocol) startFast() {
 				}
 			}
 		case newJust := <-p.board.IncomingJustification():
-			// TODO see how can we deal with inconsistent answers from different
-			// dealers
-			if err := VerifyPacketSignature(p.dkg.c, &newJust); err == nil {
+			if err := p.verify(&newJust); err == nil {
 				justifs.Push(&newJust)
 			}
 			if justifs.Len() == oldN {
@@ -242,6 +233,14 @@ func (p *Protocol) startFast() {
 			}
 		}
 	}
+}
+
+func (p *Protocol) verify(packet Packet) error {
+	if p.skipVerif {
+		return nil
+	}
+
+	return VerifyPacketSignature(p.dkg.c, packet)
 }
 
 func (p *Protocol) sendDeals() bool {
