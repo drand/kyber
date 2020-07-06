@@ -109,12 +109,6 @@ type Config struct {
 	// Auth is the scheme to use to authentify the packets sent and received
 	// during the protocol.
 	Auth sign.Scheme
-
-	// SkipSignatureVerification allows to bypass the internal signature
-	// verification of packets if the application is already checking the
-	// signature before. That can be useful in the case of broadcast
-	// implementation that avoids broadcasting invalid DKG packets.
-	SkipSignatureVerification bool
 }
 
 // Phase is a type that represents the different stages of the DKG protocol.
