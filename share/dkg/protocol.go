@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/drand/kyber"
 )
 
 // Board is the interface between the dkg protocol and the external world. It
@@ -140,15 +138,15 @@ func (p *Protocol) Start() {
 				return
 			}
 		case newDeal := <-p.board.IncomingDeal():
-			if err := p.VerifySignature(&newDeal); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newDeal); err == nil {
 				deals.Push(&newDeal)
 			}
 		case newResp := <-p.board.IncomingResponse():
-			if err := p.VerifySignature(&newResp); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newResp); err == nil {
 				resps.Push(&newResp)
 			}
 		case newJust := <-p.board.IncomingJustification():
-			if err := p.VerifySignature(&newJust); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newJust); err == nil {
 				justifs.Push(&newJust)
 			}
 		}
@@ -211,7 +209,7 @@ func (p *Protocol) startFast() {
 				return
 			}
 		case newDeal := <-p.board.IncomingDeal():
-			if err := p.VerifySignature(&newDeal); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newDeal); err == nil {
 				deals.Push(&newDeal)
 			}
 			// XXX This assumes we receive our own deal bundle since we use a
@@ -224,7 +222,7 @@ func (p *Protocol) startFast() {
 		case newResp := <-p.board.IncomingResponse():
 			// TODO See how can we deal with inconsistent answers from different
 			// share holders
-			if err := p.VerifySignature(&newResp); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newResp); err == nil {
 				resps.Push(&newResp)
 			}
 			if resps.Len() == newN {
@@ -235,7 +233,7 @@ func (p *Protocol) startFast() {
 		case newJust := <-p.board.IncomingJustification():
 			// TODO see how can we deal with inconsistent answers from different
 			// dealers
-			if err := p.VerifySignature(&newJust); err == nil {
+			if err := VerifyPacketSignature(p.dkg.c, &newJust); err == nil {
 				justifs.Push(&newJust)
 			}
 			if justifs.Len() == oldN {
@@ -244,48 +242,6 @@ func (p *Protocol) startFast() {
 			}
 		}
 	}
-}
-
-// VerifySignature takes the index of the sender of the packet, computes the
-// hash and verify if the signature is correct. VerifySignature expects a
-// pointer to  an AuthDealBundle, AuthResponseBundle, or AuthJustifBundle.
-// It returns nil if the Auth scheme in the config is nil.
-func (p *Protocol) VerifySignature(packet interface{}) error {
-	if p.dkg.c.Auth == nil {
-		return nil
-	}
-	var ok bool
-	var hash []byte
-	var pub kyber.Point
-	var sig []byte
-	switch auth := packet.(type) {
-	case *DealBundle:
-		hash = auth.Hash()
-		pub, ok = findIndex(p.dkg.c.OldNodes, auth.DealerIndex)
-		if !ok {
-			return errors.New("no nodes with this public key")
-		}
-		sig = auth.Signature
-	case *ResponseBundle:
-		hash = auth.Hash()
-		pub, ok = findIndex(p.dkg.c.NewNodes, auth.ShareIndex)
-		if !ok {
-			return errors.New("no nodes with this public key")
-		}
-		sig = auth.Signature
-	case *JustificationBundle:
-		hash = auth.Hash()
-		pub, ok = findIndex(p.dkg.c.OldNodes, auth.DealerIndex)
-		if !ok {
-			return errors.New("no nodes with this public key")
-		}
-		sig = auth.Signature
-	default:
-		return errors.New("unknown packet type")
-	}
-
-	err := p.dkg.c.Auth.Verify(pub, hash, sig)
-	return err
 }
 
 func (p *Protocol) sendDeals() bool {
@@ -359,17 +315,17 @@ type OptionResult struct {
 }
 
 type set struct {
-	vals map[Index]packet
+	vals map[Index]Packet
 	bad  []Index
 }
 
 func newSet() *set {
 	return &set{
-		vals: make(map[Index]packet),
+		vals: make(map[Index]Packet),
 	}
 }
 
-func (s *set) Push(p packet) {
+func (s *set) Push(p Packet) {
 	hash := p.Hash()
 	idx := p.Index()
 	if s.isBad(idx) {
