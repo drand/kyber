@@ -10,6 +10,7 @@ type Suite interface {
 	G2() kyber.Group
 	GT() kyber.Group
 	Pair(p1, p2 kyber.Point) kyber.Point
+	ValidatePairing(p1, p2, inv1, inv2 kyber.Point) bool
 	kyber.Encoding
 	kyber.HashFactory
 	kyber.XOFFactory
