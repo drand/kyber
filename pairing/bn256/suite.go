@@ -99,7 +99,7 @@ func (s *Suite) Pair(p1 kyber.Point, p2 kyber.Point) kyber.Point {
 }
 
 func (s *Suite) ValidatePairing(p1, p2, inv1, inv2 kyber.Point) bool {
-	panic("not implemented for bn256")
+	return s.Pair(p1, p2).Equal(s.Pair(inv1, inv2))
 }
 
 // Not used other than for reflect.TypeOf()
