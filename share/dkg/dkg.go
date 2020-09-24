@@ -552,6 +552,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		return res, nil, err
 	}
 
+	var validAuthors []Index
 	var foundComplaint bool
 	for _, bundle := range bundles {
 		if bundle == nil {
@@ -566,8 +567,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		}
 
 		if bytes.Compare(bundle.SessionID, d.c.Nonce) != 0 {
-			// XXX for the moment we continue,
-			// TODO: fix it with a proper eviction list of share holders
+			d.evictedHolders = append(d.evictedHolders, bundle.ShareIndex)
 			continue
 		}
 
@@ -591,8 +591,28 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 			if response.Status == Complaint {
 				foundComplaint = true
 			}
+			validAuthors = append(validAuthors, bundle.ShareIndex)
 		}
 	}
+	// In case of fast sync, we want to make sure all share holders have sent a
+	// valid response. All share holders that did not will be evicted from the
+	// final group. Since we are using a broadcast channel, if a node is honest,
+	// its response will be received by all honest nodes.
+	if d.c.FastSync {
+		// we only need to look at the nodes that did not sent any response,
+		// since the invalid one are already markes as evicted
+		allSent := append(validAuthors, d.evictedHolders...)
+		isPresent := isEvicted
+		for _, n := range d.c.NewNodes {
+			if d.canReceive && d.nidx == n.Index {
+				continue // we dont evict ourself
+			}
+			if !isPresent(allSent, n.Index) {
+				d.evictedHolders = append(d.evictedHolders, n.Index)
+			}
+		}
+	}
+
 	if !foundComplaint {
 		// there is no complaint !
 		if d.canReceive && d.statuses.CompleteSuccess() {
@@ -883,7 +903,6 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 			qual = append(qual, newNode)
 		}
 	}
-
 	if len(qual) < d.c.Threshold {
 		return nil, fmt.Errorf("dkg: too many uncompliant new participants %d/%d", len(qual), d.c.Threshold)
 	}
