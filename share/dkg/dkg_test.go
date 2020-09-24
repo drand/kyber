@@ -571,23 +571,6 @@ func TestDKGFullFast(t *testing.T) {
 	testResults(t, suite, thr, n, results)
 }
 
-func TestDKGAbsentFast(t *testing.T) {
-	n := 5
-	thr := 4
-	suite := edwards25519.NewBlakeSHA256Ed25519()
-	tns := GenerateTestNodes(suite, n)
-	list := NodesFromTest(tns)
-	conf := Config{
-		FastSync:  true,
-		Suite:     suite,
-		NewNodes:  list,
-		Threshold: thr,
-		Auth:      schnorr.NewScheme(suite),
-	}
-	results := RunDKG(t, tns, conf, nil, nil, nil)
-	testResults(t, suite, thr, n, results)
-}
-
 func TestDKGNonceInvalid(t *testing.T) {
 	n := 5
 	thr := n
