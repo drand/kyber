@@ -594,10 +594,12 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 			validAuthors = append(validAuthors, bundle.ShareIndex)
 		}
 	}
+
 	// In case of fast sync, we want to make sure all share holders have sent a
-	// valid response. All share holders that did not will be evicted from the
-	// final group. Since we are using a broadcast channel, if a node is honest,
-	// its response will be received by all honest nodes.
+	// valid response (success or complaint). All share holders that did not
+	// will be evicted from the final group. Since we are using a broadcast
+	// channel, if a node is honest, its response will be received by all honest
+	// nodes.
 	if d.c.FastSync {
 		// we only need to look at the nodes that did not sent any response,
 		// since the invalid one are already markes as evicted
@@ -889,20 +891,26 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 	// protocol (i.e. absent nodes will not be counted)
 	var qual []Node
 	for _, newNode := range d.c.NewNodes {
-		idx := newNode.Index
 		var invalid bool
-		for _, validDealer := range validDealers {
-			if !d.statuses.Get(validDealer, idx) {
+		// look if this node is also a dealer which have been misbehaving
+		for _, oldNode := range d.c.OldNodes {
+			if d.statuses.AllTrue(oldNode.Index) {
+				// it's a valid dealer as well
+				continue
+			}
+			if oldNode.Public.Equal(newNode.Public) {
+				// it's an invalid dealer, so we evict him
 				invalid = true
 				break
 			}
 		}
-		// look if they have not been misbehaving during response phase
-		invalid = invalid || isEvicted(d.evictedHolders, idx)
-		if !invalid {
+		// we also check if he has been misbehaving during the response phase
+		// only
+		if !invalid && !isEvicted(d.evictedHolders, newNode.Index) {
 			qual = append(qual, newNode)
 		}
 	}
+
 	if len(qual) < d.c.Threshold {
 		return nil, fmt.Errorf("dkg: too many uncompliant new participants %d/%d", len(qual), d.c.Threshold)
 	}

@@ -521,7 +521,6 @@ func TestDKGResharingFast(t *testing.T) {
 			continue
 		}
 		require.NotNil(t, just.Justifications)
-		fmt.Println(just)
 		require.Equal(t, just.Justifications[0].ShareIndex, skipNew)
 		justifs = append(justifs, just)
 	}
