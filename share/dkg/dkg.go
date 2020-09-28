@@ -490,7 +490,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		// if the node is evicted, we don't even need to send a complaint or a
 		// response response since every honest node evicts him as well.
 		// XXX Is that always true ? Should we send a complaint still ?
-		if isEvicted(d.evicted, node.Index) {
+		if contains(d.evicted, node.Index) {
 			continue
 		}
 
@@ -604,12 +604,11 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		// we only need to look at the nodes that did not sent any response,
 		// since the invalid one are already markes as evicted
 		allSent := append(validAuthors, d.evictedHolders...)
-		isPresent := isEvicted
 		for _, n := range d.c.NewNodes {
 			if d.canReceive && d.nidx == n.Index {
 				continue // we dont evict ourself
 			}
-			if !isPresent(allSent, n.Index) {
+			if !contains(allSent, n.Index) {
 				d.evictedHolders = append(d.evictedHolders, n.Index)
 			}
 		}
@@ -713,7 +712,7 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 			// index is invalid
 			continue
 		}
-		if isEvicted(d.evicted, bundle.DealerIndex) {
+		if contains(d.evicted, bundle.DealerIndex) {
 			// already evicted node
 			continue
 		}
@@ -768,7 +767,7 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 	// check if there is enough dealer entries marked as all success
 	var allGood int
 	for _, n := range d.c.OldNodes {
-		if isEvicted(d.evicted, n.Index) {
+		if contains(d.evicted, n.Index) {
 			continue
 		}
 		if !d.statuses.AllTrue(n.Index) {
@@ -906,7 +905,7 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 		}
 		// we also check if he has been misbehaving during the response phase
 		// only
-		if !invalid && !isEvicted(d.evictedHolders, newNode.Index) {
+		if !invalid && !contains(d.evictedHolders, newNode.Index) {
 			qual = append(qual, newNode)
 		}
 	}
@@ -938,7 +937,7 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 
 		// however we do need to check for evicted share holders since in this
 		// case (DKG) both are the same.
-		if isEvicted(d.evictedHolders, n.Index) {
+		if contains(d.evictedHolders, n.Index) {
 			continue
 		}
 
@@ -1012,7 +1011,7 @@ func isIndexIncluded(list []Node, index uint32) bool {
 	return false
 }
 
-func isEvicted(nodes []Index, node uint32) bool {
+func contains(nodes []Index, node Index) bool {
 	for _, idx := range nodes {
 		if node == idx {
 			return true
