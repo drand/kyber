@@ -139,6 +139,23 @@ func (p Phase) String() string {
 	}
 }
 
+// Next returns the next phase. It returns the FinishPhase when it is already in
+// the FinishedPhase or when it is an unknown phase.
+func (p Phase) Next() Phase {
+	switch p {
+	case InitPhase:
+		return DealPhase
+	case DealPhase:
+		return ResponsePhase
+	case ResponsePhase:
+		return JustifPhase
+	case JustifPhase:
+		return FinishPhase
+	default:
+		return FinishPhase
+	}
+}
+
 // DistKeyGenerator is the struct that runs the DKG protocol.
 type DistKeyGenerator struct {
 	// config driving the behavior of DistKeyGenerator
@@ -387,11 +404,11 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 	}
 	if d.canIssue && d.state != DealPhase {
 		// oldnode member is not in the right state
-		return nil, fmt.Errorf("processdeals can only be called after producing shares")
+		return nil, fmt.Errorf("processdeals can only be called after producing shares - state %s", d.state.String())
 	}
 	if d.canReceive && !d.canIssue && d.state != InitPhase {
 		// newnode member which is not in the old group is not in the riht state
-		return nil, fmt.Errorf("processdeals can only be called once after creating the dkg for a new member")
+		return nil, fmt.Errorf("processdeals can only be called once after creating the dkg for a new member - state %s", d.state.String())
 	}
 	seenIndex := make(map[uint32]bool)
 	for _, bundle := range bundles {
@@ -542,7 +559,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		// if we are a old node that will leave
 		return nil, nil, fmt.Errorf("leaving node can process responses only after creating shares")
 	} else if d.state != ResponsePhase {
-		return nil, nil, fmt.Errorf("can only process responses after processing shares")
+		return nil, nil, fmt.Errorf("can only process responses after processing shares - current state %s", d.state)
 	}
 
 	if !d.c.FastSync && len(bundles) == 0 && d.canReceive && d.statuses.CompleteSuccess() {
@@ -690,7 +707,7 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		return nil, nil
 	}
 	if d.state != JustifPhase {
-		return nil, fmt.Errorf("node can only process justifications after processing responses")
+		return nil, fmt.Errorf("node can only process justifications after processing responses - current state %s", d.state.String())
 	}
 
 	seen := make(map[uint32]bool)
