@@ -162,19 +162,33 @@ func (p *Protocol) startFast() {
 	}
 	// each of the following function returns true or false depending on whether
 	// the protocol should be aborted or not.
-	transition := func(exp Phase, fn func() bool) func() bool {
-		return func() bool {
-			if phase() != exp {
-				return true
-			}
-			return fn()
+	toResp := func() bool {
+		// for all dealers, we should be in the DealPhase
+		if p.canIssue && phase() != DealPhase {
+			return true
 		}
+		// for all *new* share holders, we should be in the InitPhase
+		if !p.canIssue && phase() != InitPhase {
+			return true
+		}
+		return p.sendResponses(deals.ToDeals())
 	}
-	toResp := transition(DealPhase, func() bool { return p.sendResponses(deals.ToDeals()) })
-	toJust := transition(ResponsePhase, func() bool { return p.sendJustifications(resps.ToResponses()) })
+
+	toJust := func() bool {
+		if phase() != ResponsePhase {
+			return true
+		}
+		return p.sendJustifications(resps.ToResponses())
+	}
 	// always return false when we are in the finish phase - we quit the
 	// protocol.
-	toFinish := transition(JustifPhase, func() bool { p.finish(justifs.ToJustifications()); return false })
+	toFinish := func() bool {
+		if phase() != JustifPhase {
+			return true
+		}
+		p.finish(justifs.ToJustifications())
+		return false
+	}
 	for {
 		select {
 		case newPhase := <-p.phaser.NextPhase():
