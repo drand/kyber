@@ -156,6 +156,7 @@ func (p *Protocol) startFast() {
 	var justifs = newSet()
 	var newN = len(p.dkg.c.NewNodes)
 	var oldN = len(p.dkg.c.OldNodes)
+	// we keep the phase in sync with the dkg phase
 	state := func() Phase {
 		return p.dkg.state
 	}
