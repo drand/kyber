@@ -377,14 +377,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 // missing deals. It returns an error if the node is not in the right state, or
 // if there is not enough valid shares, i.e. the dkg is failing already.
 func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle, error) {
-	if !d.canReceive {
-		// a node that is only in the group node should not process deals
-		// XXX it was an error before, but it simplifies the higher level logic
-		// if the library itself takes care of ignoring irrelevant messages. It
-		// means higher level library can simply broadcast to all nodes (old and
-		// new) without looking at which nodes should a packet be sent.
-		return nil, nil
-	}
+
 	if d.canIssue && d.state != DealPhase {
 		// oldnode member is not in the right state
 		return nil, fmt.Errorf("processdeals can only be called after producing shares - state %s", d.state.String())
@@ -392,6 +385,11 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 	if d.canReceive && !d.canIssue && d.state != InitPhase {
 		// newnode member which is not in the old group is not in the riht state
 		return nil, fmt.Errorf("processdeals can only be called once after creating the dkg for a new member - state %s", d.state.String())
+	}
+	if !d.canReceive {
+		// a node that is only in the old group should not process deals
+		d.state = ResponsePhase // he moves on to the next phase silently
+		return nil, nil
 	}
 	seenIndex := make(map[uint32]bool)
 	for _, bundle := range bundles {

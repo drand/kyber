@@ -157,14 +157,14 @@ func (p *Protocol) startFast() {
 	var newN = len(p.dkg.c.NewNodes)
 	var oldN = len(p.dkg.c.OldNodes)
 	// we keep the phase in sync with the dkg phase
-	state := func() Phase {
+	phase := func() Phase {
 		return p.dkg.state
 	}
 	// each of the following function returns true or false depending on whether
 	// the protocol should be aborted or not.
 	transition := func(exp Phase, fn func() bool) func() bool {
 		return func() bool {
-			if state() != exp {
+			if phase() != exp {
 				return true
 			}
 			return fn()
