@@ -139,23 +139,6 @@ func (p Phase) String() string {
 	}
 }
 
-// Next returns the next phase. It returns the FinishPhase when it is already in
-// the FinishedPhase or when it is an unknown phase.
-func (p Phase) Next() Phase {
-	switch p {
-	case InitPhase:
-		return DealPhase
-	case DealPhase:
-		return ResponsePhase
-	case ResponsePhase:
-		return JustifPhase
-	case JustifPhase:
-		return FinishPhase
-	default:
-		return FinishPhase
-	}
-}
-
 // DistKeyGenerator is the struct that runs the DKG protocol.
 type DistKeyGenerator struct {
 	// config driving the behavior of DistKeyGenerator
@@ -631,13 +614,15 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		}
 	}
 
-	if !foundComplaint {
-		// there is no complaint !
-		if d.canReceive && d.statuses.CompleteSuccess() {
+	// there is no complaint in the responses received and the status matrix
+	// is all filled with success that means we can finish the protocol -
+	// regardless of the mode chosen (fast sync or not).
+	if !foundComplaint && d.statuses.CompleteSuccess() {
+		d.state = FinishPhase
+		if d.canReceive {
 			res, err := d.computeResult()
 			return res, nil, err
 		} else {
-			d.state = FinishPhase
 			// old nodes that are not present in the new group
 			return nil, nil, nil
 		}

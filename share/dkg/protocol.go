@@ -156,15 +156,16 @@ func (p *Protocol) startFast() {
 	var justifs = newSet()
 	var newN = len(p.dkg.c.NewNodes)
 	var oldN = len(p.dkg.c.OldNodes)
-	var phase Phase
+	state := func() Phase {
+		return p.dkg.state
+	}
 	// each of the following function returns true or false depending on whether
 	// the protocol should be aborted or not.
 	transition := func(exp Phase, fn func() bool) func() bool {
 		return func() bool {
-			if phase != exp {
+			if state() != exp {
 				return true
 			}
-			phase = phase.Next()
 			return fn()
 		}
 	}
@@ -178,7 +179,6 @@ func (p *Protocol) startFast() {
 		case newPhase := <-p.phaser.NextPhase():
 			switch newPhase {
 			case DealPhase:
-				phase = DealPhase
 				if !p.sendDeals() {
 					return
 				}
@@ -272,15 +272,9 @@ func (p *Protocol) sendResponses(deals []*DealBundle) bool {
 
 func (p *Protocol) sendJustifications(resps []*ResponseBundle) bool {
 	res, just, err := p.dkg.ProcessResponses(resps)
-	if err != nil {
+	if err != nil || res != nil {
 		p.res <- OptionResult{
-			Error: err,
-		}
-		return false
-	}
-	if res != nil {
-		// we finished
-		p.res <- OptionResult{
+			Error:  err,
 			Result: res,
 		}
 		return false
