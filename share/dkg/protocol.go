@@ -200,7 +200,7 @@ func (p *Protocol) startFast() {
 		case newPhase := <-p.phaser.NextPhase():
 			switch newPhase {
 			case DealPhase:
-				p.Log("phaser", fmt.Sprintf("moving to sending deals phase", resps.Len()))
+				p.Log("phaser", "moving to sending deals phase")
 				if !p.sendDeals() {
 					return
 				}
@@ -317,7 +317,7 @@ func (p *Protocol) sendJustifications(resps []*ResponseBundle) bool {
 		p.Log("info", fmt.Sprintf("node sends justifications out (from %d responses)", len(resps)))
 		p.board.PushJustifications(just)
 	} else {
-		fmt.Printf("info", "DKG finished in response phase")
+		p.Log("info", "DKG finished in response phase")
 	}
 	return true
 }
