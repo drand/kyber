@@ -283,6 +283,7 @@ func (p *Protocol) sendDeals() bool {
 		return false
 	}
 	if bundle != nil {
+		p.Log("info", fmt.Sprintf("Sending out the bundle with %d deals", len(bundle.Deals)))
 		p.board.PushDeals(bundle)
 	}
 	return true
