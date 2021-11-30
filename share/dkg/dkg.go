@@ -268,6 +268,9 @@ func NewDistKeyHandler(c *Config) (*DistKeyGenerator, error) {
 		secretCoeff = c.Share.Share.V
 		canIssue = true
 	}
+	if err := c.CheckForDuplicates(); err != nil {
+		return nil, err
+	}
 	dpriv = share.NewPriPoly(c.Suite, c.Threshold, secretCoeff, c.Suite.RandomStream())
 	dpub = dpriv.Commit(c.Suite.Point().Base())
 	// resharing case and we are included in the new list of nodes
@@ -1040,4 +1043,29 @@ func (d *DistKeyGenerator) sign(p Packet) ([]byte, error) {
 	msg := p.Hash()
 	priv := d.c.Longterm
 	return d.c.Auth.Sign(priv, msg)
+}
+
+// CheckForDuplicates looks at the lits of node indices in the OldNodes and
+// NewNodes list. It returns an error if there is a duplicate in either list.
+// NOTE: It only looks at indices because it is plausible that one party may
+// have multiple indices for the protocol, i.e. a higher "weight".
+func (c *Config) CheckForDuplicates() error {
+	checkDuplicate := func(list []Node) error {
+		hashSet := make(map[Index]bool)
+		for _, n := range list {
+			if _, present := hashSet[n.Index]; present {
+				return fmt.Errorf("index %d", n.Index)
+			} else {
+				hashSet[n.Index] = true
+			}
+		}
+		return nil
+	}
+	if err := checkDuplicate(c.OldNodes); err != nil {
+		return fmt.Errorf("found duplicate in old nodes list: %v", err)
+	}
+	if err := checkDuplicate(c.NewNodes); err != nil {
+		return fmt.Errorf("found duplicate in new nodes list: %v", err)
+	}
+	return nil
 }
