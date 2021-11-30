@@ -810,8 +810,8 @@ func (d *DistKeyGenerator) computeResult() (*Result, error) {
 
 func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 	// only old nodes sends shares
-	shares := make([]*share.PriShare, len(d.c.OldNodes))
-	coeffs := make([][]kyber.Point, len(d.c.OldNodes))
+	shares := make([]*share.PriShare, 0, len(d.c.OldNodes))
+	coeffs := make(map[Index][]kyber.Point, len(d.c.OldNodes))
 	var validDealers []Index
 	for _, n := range d.c.OldNodes {
 		if !d.statuses.AllTrue(n.Index) {
@@ -832,10 +832,10 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 			return nil, fmt.Errorf("BUG: nidx %d private share not found from dealer %d", d.nidx, n.Index)
 		}
 		// share of dist. secret. Invertion of rows/column
-		shares[n.Index] = &share.PriShare{
+		shares = append(shares, &share.PriShare{
 			V: sh,
 			I: int(n.Index),
-		}
+		})
 		validDealers = append(validDealers, n.Index)
 	}
 
@@ -856,13 +856,13 @@ func (d *DistKeyGenerator) computeResharingResult() (*Result, error) {
 	// will be held by the new nodes.
 	finalCoeffs := make([]kyber.Point, d.newT)
 	for i := 0; i < d.newT; i++ {
-		tmpCoeffs := make([]*share.PubShare, len(coeffs))
+		tmpCoeffs := make([]*share.PubShare, 0, len(coeffs))
 		// take all i-th coefficients
 		for j := range coeffs {
 			if coeffs[j] == nil {
 				continue
 			}
-			tmpCoeffs[j] = &share.PubShare{I: j, V: coeffs[j][i]}
+			tmpCoeffs = append(tmpCoeffs, &share.PubShare{I: int(j), V: coeffs[j][i]})
 		}
 
 		// using the old threshold / length because there are at most
