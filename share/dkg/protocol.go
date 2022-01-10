@@ -107,7 +107,7 @@ func NewProtocol(c *Config, b Board, phaser Phaser, skipVerification bool) (*Pro
 
 func (p *Protocol) Log(keyvals ...interface{}) {
 	if p.dkg.c.Logger != nil {
-		p.dkg.c.Logger(append([]interface{}{"dkg-proto-log"}, keyvals...))
+		p.dkg.c.Logger(append([]interface{}{"source", "dkg-proto"}, keyvals...))
 	}
 }
 
