@@ -13,3 +13,8 @@ type HashFactory interface {
 type HashablePoint interface {
 	Hash([]byte) Point
 }
+
+// a scalar can be created via a hash and this is the interface for using it
+type HashableScalar interface {
+	Hash([]byte) Scalar
+}
