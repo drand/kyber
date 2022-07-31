@@ -2,7 +2,10 @@ package mod
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"hash"
 	"math/big"
 	"testing"
 
@@ -97,4 +100,20 @@ func TestIntClone(t *testing.T) {
 	if bytes.Equal(b1, b2) {
 		t.Error("Should not be equal")
 	}
+}
+
+type hh struct{}
+
+func (h *hh) Hash() hash.Hash {
+	return sha256.New()
+}
+
+func TestScalarHash(t *testing.T) {
+	token := make([]byte, 32)
+	rand.Read(token)
+	modulo := big.NewInt(65535)
+	var v int64 = 65500
+	i := new(Int).Init64(v, modulo)
+	_, err := i.Hash(new(hh), bytes.NewReader(token))
+	require.NoError(t, err)
 }
