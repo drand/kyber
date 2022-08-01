@@ -2,7 +2,6 @@ package mod
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"hash"
@@ -109,11 +108,15 @@ func (h *hh) Hash() hash.Hash {
 }
 
 func TestScalarHash(t *testing.T) {
-	token := make([]byte, 32)
-	rand.Read(token)
+	msg := []byte("Take a walk on the wild side")
 	modulo := big.NewInt(65535)
 	var v int64 = 65500
 	i := new(Int).Init64(v, modulo)
-	_, err := i.Hash(new(hh), bytes.NewReader(token))
+	hashed, err := i.Hash(new(hh), bytes.NewReader(msg))
 	require.NoError(t, err)
+
+	expStr := "518f"
+	exp := new(Int).InitString(expStr, "1", 16, modulo)
+	require.Equal(t, exp, hashed)
+
 }
