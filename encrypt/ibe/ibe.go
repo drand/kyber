@@ -134,7 +134,7 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 		return nil, fmt.Errorf("err hashing h3 tag: %v", err)
 	}
 	if _, err := h3.Write(sigma); err != nil {
-		return nil, fmt.Errorf("err hashing sigma to XOF: %v", err)
+		return nil, fmt.Errorf("err hashing sigma: %v", err)
 	}
 	_, _ = h3.Write(msg)
 	hashable, ok := s.G1().Scalar().(kyber.HashableScalar)
@@ -179,7 +179,7 @@ func gtToHash(s pairing.Suite, gt kyber.Point, length int, dst []byte) ([]byte, 
 	hashReader := bytes.NewReader(hash.Sum(nil))
 	var b = make([]byte, length)
 	if _, err := hashReader.Read(b); err != nil {
-		return nil, errors.New("couldn't read from xof")
+		return nil, errors.New("couldn't read from hash output")
 	}
 	return b[:], nil
 }
