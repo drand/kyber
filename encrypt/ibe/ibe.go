@@ -42,10 +42,10 @@ func H4Tag() []byte {
 // - seed is the random seed to generate the random element (sigma) of the encryption
 // The suite must produce points which implements the `HashablePoint` interface.
 func Encrypt(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, error) {
-	if len(msg)>>16 > 0 {
-		// we're using blake2 as XOF which only outputs 2^16-1 length
-		return nil, errors.New("plaintext too long for blake2")
+	if len(msg) > s.Hash().Size() {
+		return nil, errors.New("plaintext too long for the hash function provided")
 	}
+
 	// 1. Compute Gid = e(master,Q_id)
 	hG2, ok := s.G2().Point().(kyber.HashablePoint)
 	if !ok {
@@ -90,6 +90,10 @@ func Encrypt(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, 
 }
 
 func Decrypt(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error) {
+	if len(c.W) > s.Hash().Size() {
+		return nil, errors.New("ciphertext too long for the hash function provided")
+	}
+
 	// 1. Compute sigma = V XOR H2(e(rP,private))
 	gidt := s.Pair(c.U, private)
 	hgidt, err := gtToHash(s, gidt, len(c.W), H2Tag())
@@ -125,7 +129,6 @@ func Decrypt(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error
 // hash sigma and msg to get r
 func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 	h3 := s.Hash()
-	h3.Reset()
 
 	if _, err := h3.Write(H3Tag()); err != nil {
 		return nil, fmt.Errorf("err hashing h3 tag: %v", err)
@@ -139,14 +142,13 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 		panic("scalar can't be created from hash")
 	}
 
-	h3Reader := bytes.NewReader(h3.Sum(make([]byte, h3.Size())))
+	h3Reader := bytes.NewReader(h3.Sum(nil))
 
 	return hashable.Hash(s, h3Reader)
 }
 
 func h4(s pairing.Suite, sigma []byte, length int) ([]byte, error) {
 	h4 := s.Hash()
-	h4.Reset()
 
 	if _, err := h4.Write(H4Tag()); err != nil {
 		return nil, fmt.Errorf("err writing h4tag: %v", err)
@@ -155,7 +157,7 @@ func h4(s pairing.Suite, sigma []byte, length int) ([]byte, error) {
 		return nil, fmt.Errorf("err writing sigma to h4: %v", err)
 	}
 
-	h4Reader := bytes.NewReader(h4.Sum(make([]byte, h4.Size())))
+	h4Reader := bytes.NewReader(h4.Sum(nil))
 	h4sigma := make([]byte, length)
 
 	if _, err := h4Reader.Read(h4sigma); err != nil {
@@ -166,7 +168,6 @@ func h4(s pairing.Suite, sigma []byte, length int) ([]byte, error) {
 
 func gtToHash(s pairing.Suite, gt kyber.Point, length int, dst []byte) ([]byte, error) {
 	hash := s.Hash()
-	hash.Reset()
 
 	if _, err := hash.Write(dst); err != nil {
 		return nil, errors.New("err writing dst to gtHash")
@@ -175,7 +176,7 @@ func gtToHash(s pairing.Suite, gt kyber.Point, length int, dst []byte) ([]byte, 
 		return nil, errors.New("err marshalling gt to the hash function")
 	}
 
-	hashReader := bytes.NewReader(hash.Sum(make([]byte, hash.Size())))
+	hashReader := bytes.NewReader(hash.Sum(nil))
 	var b = make([]byte, length)
 	if _, err := hashReader.Read(b); err != nil {
 		return nil, errors.New("couldn't read from xof")
