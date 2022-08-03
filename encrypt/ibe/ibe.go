@@ -95,15 +95,15 @@ func Decrypt(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error
 	}
 
 	// 1. Compute sigma = V XOR H2(e(rP,private))
-	gidt := s.Pair(c.U, private)
-	hgidt, err := gtToHash(s, gidt, len(c.W), H2Tag())
+	rGid := s.Pair(c.U, private)
+	hrGid, err := gtToHash(s, rGid, len(c.W), H2Tag())
 	if err != nil {
 		return nil, err
 	}
-	if len(hgidt) != len(c.V) {
-		return nil, fmt.Errorf("XorSigma is of invalid length: exp %d vs got %d", len(hgidt), len(c.V))
+	if len(hrGid) != len(c.V) {
+		return nil, fmt.Errorf("XorSigma is of invalid length: exp %d vs got %d", len(hrGid), len(c.V))
 	}
-	sigma := xor(hgidt, c.V)
+	sigma := xor(hrGid, c.V)
 
 	// 2. Compute M = W XOR H4(sigma)
 	hsigma, err := h4(s, sigma, len(c.W))
