@@ -683,11 +683,6 @@ func TestProtoSkip(t *testing.T) {
 			break
 		}
 	}
-	//	time.Sleep(100 * time.Millisecond)
-	//	moveTime(tns, period)
-	//	time.Sleep(100 * time.Millisecond)
-	//	moveTime(tns, period)
-	//	time.Sleep(100 * time.Millisecond)
 	// check that all dkgs have all good entries
 	// that should be the case since signature verification is not performed
 	for _, tn := range tns {
