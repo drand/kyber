@@ -1,6 +1,7 @@
 package dkg
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -175,7 +176,10 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 	var results []*Result
 	for _, node := range tns {
 		res, just, err := node.dkg.ProcessResponses(respBundles)
-		require.NoError(t, err)
+		if !errors.Is(err, ErrEvicted) {
+			// there should not be any other error than eviction
+			require.NoError(t, err)
+		}
 		if res != nil {
 			results = append(results, res)
 		} else if just != nil {
@@ -193,7 +197,9 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 
 	for _, node := range tns {
 		res, err := node.dkg.ProcessJustifications(justifs)
-		require.NoError(t, err)
+		if !errors.Is(err, ErrEvicted) {
+			require.NoError(t, err)
+		}
 		require.NotNil(t, res)
 		results = append(results, res)
 	}
@@ -977,8 +983,14 @@ func TestDKGInvalidResponse(t *testing.T) {
 	respBundles[2].Responses[0].Status = Success
 
 	var justifs []*JustificationBundle
-	for _, node := range tns {
+	for i, node := range tns {
 		res, just, err := node.dkg.ProcessResponses(respBundles)
+		if i == 0 {
+			// node 0 was absent so there is more than a threshold of nodes
+			// that make the complaint so he's being evicted
+			require.Error(t, err)
+			continue
+		}
 		require.NoError(t, err)
 		require.Nil(t, res)
 		if just != nil {

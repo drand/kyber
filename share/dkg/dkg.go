@@ -1025,28 +1025,34 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 	}, nil
 }
 
+var ErrEvicted = errors.New("our node is evicted from list of qualified participants")
+
 func (d *DistKeyGenerator) checkIfEvicted(phase Phase) error {
-	if phase == DealPhase || phase == JustifPhase {
-		// here we are processing messages from the current share holders
-		if !d.canIssue {
-			// we can't be evicted as a new node
-			return nil
-		}
-		for _, idx := range d.evicted {
-			if d.oidx == idx {
-				return errors.New("we are being evicted from the qualified dealers - exit DKG")
-			}
-		}
-	} else if phase == ResponsePhase {
-		// here we are processing messages from the new recipients
+	var arr []Index
+	var indexToUse Index
+
+	// For DKG -> for all phases look at evicted dealers since both list are the
+	// 			same anyway
+	// For resharing ->  only at response phase we evict some new share holders
+	// 			otherwise, it's only dealers we evict (since deal and justif are made by dealers)
+	if d.isResharing && phase == ResponsePhase {
 		if !d.canReceive {
 			// we can't be evicted as an old node leaving the group here
 			return nil
 		}
-		for _, idx := range d.evictedHolders {
-			if d.nidx == idx {
-				return errors.New("we are being evicted from qualified recipients - exit DKG")
-			}
+		arr = d.evictedHolders
+		indexToUse = d.nidx
+	} else {
+		if !d.canIssue {
+			// we can't be evicted as a new node in this setting
+			return nil
+		}
+		arr = d.evicted
+		indexToUse = d.oidx
+	}
+	for _, idx := range arr {
+		if indexToUse == idx {
+			return ErrEvicted
 		}
 	}
 	return nil
