@@ -200,7 +200,9 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 	return results
 }
 
-func TestOwnEviction(t *testing.T) {
+// This tests makes a dealer being evicted and checks if the dealer knows about the eviction
+// itself and quits the DKG
+func TestSelfEvictionDealer(t *testing.T) {
 	n := 5
 	thr := 3
 	suite := edwards25519.NewBlakeSHA256Ed25519()
@@ -214,7 +216,7 @@ func TestOwnEviction(t *testing.T) {
 		NewNodes:  list,
 		Threshold: thr,
 		Auth:      schnorr.NewScheme(suite),
-		FastSync: true,
+		FastSync:  true,
 	}
 	SetupNodes(tns, &conf)
 
@@ -370,6 +372,95 @@ func TestDKGFull(t *testing.T) {
 
 	results := RunDKG(t, tns, conf, nil, nil, nil)
 	testResults(t, suite, thr, n, results)
+}
+
+func TestSelfEvictionShareHolder(t *testing.T) {
+	n := 5
+	thr := 4
+	var suite = bn256.NewSuiteG2()
+	var sigSuite = bn256.NewSuiteG1()
+	tns := GenerateTestNodes(suite, n)
+	list := NodesFromTest(tns)
+	conf := Config{
+		Suite:     suite,
+		NewNodes:  list,
+		Threshold: thr,
+		Auth:      schnorr.NewScheme(suite),
+	}
+
+	results := RunDKG(t, tns, conf, nil, nil, nil)
+	for i, t := range tns {
+		t.res = results[i]
+	}
+	testResults(t, suite, thr, n, results)
+
+	// create a partial signature with the share now and make sure the partial
+	// signature is verifiable and then *not* verifiable after the resharing
+	oldShare := results[0].Key.Share
+	msg := []byte("Hello World")
+	scheme := tbls.NewThresholdSchemeOnG1(sigSuite)
+	oldPartial, err := scheme.Sign(oldShare, msg)
+	require.NoError(t, err)
+	poly := share.NewPubPoly(suite, suite.Point().Base(), results[0].Key.Commits)
+	require.NoError(t, scheme.VerifyPartial(poly, msg, oldPartial))
+
+	// we setup now the second group with higher node count and higher threshold
+	// and we remove one node from the previous group
+	newN := n + 5
+	newT := thr + 4
+	var newTns = make([]*TestNode, n)
+	copy(newTns, tns)
+	newNode := newN - n
+	for i := 0; i < newNode; i++ {
+		newTns = append(newTns, NewTestNode(suite, n+1+i))
+	}
+	newIndexToEvict := newTns[len(newTns)-1].Index
+	newList := NodesFromTest(newTns)
+	newConf := &Config{
+		Suite:        suite,
+		NewNodes:     newList,
+		OldNodes:     list,
+		Threshold:    newT,
+		OldThreshold: thr,
+		FastSync:     true,
+		Auth:         schnorr.NewScheme(suite),
+	}
+
+	SetupReshareNodes(newTns, newConf, tns[0].res.Key.Commits)
+
+	var deals []*DealBundle
+	for _, node := range newTns {
+		if node.res == nil {
+			// new members don't issue deals
+			continue
+		}
+		d, err := node.dkg.Deals()
+		require.NoError(t, err)
+		deals = append(deals, d)
+	}
+
+	var responses []*ResponseBundle
+	for _, node := range newTns {
+		resp, err := node.dkg.ProcessDeals(deals)
+		require.NoError(t, err)
+		if node.Index == newIndexToEvict {
+			// we insert a bad session ID for example so this new recipient should be evicted
+			resp.SessionID = []byte("That looks so wrong")
+		}
+		responses = append(responses, resp)
+	}
+	require.True(t, len(responses) > 0)
+
+	results = nil
+	for _, node := range newTns {
+		_, _, err := node.dkg.ProcessResponses(responses)
+		require.True(t, contains(node.dkg.evictedHolders, newIndexToEvict))
+		if node.Index == newIndexToEvict {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+	}
 }
 
 func TestDKGResharing(t *testing.T) {

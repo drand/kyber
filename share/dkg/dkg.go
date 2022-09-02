@@ -737,7 +737,7 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 
 	defer func() {
 		if err == nil {
-			err = d.checkIfEvicted()
+			err = d.checkIfEvicted(JustifPhase)
 		}
 	}()
 
@@ -1041,6 +1041,7 @@ func (d *DistKeyGenerator) checkIfEvicted(phase Phase) error {
 		// here we are processing messages from the new recipients
 		if !d.canReceive {
 			// we can't be evicted as an old node leaving the group here
+			return nil
 		}
 		for _, idx := range d.evictedHolders {
 			if d.nidx == idx {
