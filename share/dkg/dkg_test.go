@@ -200,6 +200,57 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 	return results
 }
 
+func TestOwnEviction(t *testing.T) {
+	n := 5
+	thr := 4
+	suite := edwards25519.NewBlakeSHA256Ed25519()
+	tns := GenerateTestNodes(suite, n)
+	skippedIndex := rand.Intn(n)
+	var newIndex uint32 = 53 // XXX should there be a limit to the index ?
+	tns[skippedIndex].Index = newIndex
+	list := NodesFromTest(tns)
+	conf := Config{
+		Suite:     suite,
+		NewNodes:  list,
+		Threshold: thr,
+		Auth:      schnorr.NewScheme(suite),
+		FastSync: true,
+	}
+	SetupNodes(tns, &conf)
+
+	indexToEvict := list[0].Index
+	var deals []*DealBundle
+	for _, node := range tns {
+		d, err := node.dkg.Deals()
+		require.NoError(t, err)
+		if node.Index == indexToEvict {
+			// we simulate that this node doesn't send its deal
+			continue
+		}
+		deals = append(deals, d)
+	}
+
+	var respBundles []*ResponseBundle
+	for _, node := range tns {
+		resp, err := node.dkg.ProcessDeals(deals)
+		require.NoError(t, err)
+		if resp != nil {
+			respBundles = append(respBundles, resp)
+		}
+	}
+
+	for _, node := range tns {
+		_, _, err := node.dkg.ProcessResponses(respBundles)
+		if node.Index == indexToEvict {
+			// we are evicting ourselves here so we should stop doing the DKG
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		require.True(t, contains(node.dkg.evicted, indexToEvict))
+	}
+}
+
 // This test is running DKG and resharing with skipped indices given there is no
 // guarantees that the indices of the nodes are going to be sequentials.
 func TestDKGSkipIndex(t *testing.T) {

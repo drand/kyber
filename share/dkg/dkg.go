@@ -385,7 +385,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 // decrypted and stored. It returns a response bundle if there is any invalid or
 // missing deals. It returns an error if the node is not in the right state, or
 // if there is not enough valid shares, i.e. the dkg is failing already.
-func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle, error) {
+func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (res *ResponseBundle, err error) {
 
 	if d.canIssue && d.state != DealPhase {
 		// oldnode member is not in the right state
@@ -400,6 +400,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		d.state = ResponsePhase // he moves on to the next phase silently
 		return nil, nil
 	}
+
 	seenIndex := make(map[uint32]bool)
 	for _, bundle := range bundles {
 		if bundle == nil {
@@ -408,6 +409,8 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 		}
 		if d.canIssue && bundle.DealerIndex == uint32(d.oidx) {
 			// dont look at our own deal
+			// Note that's why we are not checking if we are evicted at the end of this function and return an error
+			// because we're supposing we are honest and we don't look at our own deal
 			continue
 		}
 		if !isIndexIncluded(d.c.OldNodes, bundle.DealerIndex) {
@@ -485,6 +488,7 @@ func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle,
 			// share is valid -> store it
 			d.statuses.Set(bundle.DealerIndex, deal.ShareIndex, true)
 			d.validShares[bundle.DealerIndex] = share
+			d.c.Info("Valid deal processed received from dealer %d", bundle.DealerIndex)
 		}
 	}
 
@@ -555,7 +559,7 @@ func (d *DistKeyGenerator) ExpectedResponsesFastSync() int {
 // - the justification bundle if this node must produce at least one. If nil,
 // this node must still wait on the justification phase.
 // - error if the dkg must stop now, an unrecoverable failure.
-func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result, *JustificationBundle, error) {
+func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (res *Result, jb *JustificationBundle, err error) {
 	if !d.canReceive && d.state != DealPhase {
 		// if we are a old node that will leave
 		return nil, nil, fmt.Errorf("leaving node can process responses only after creating shares")
@@ -563,11 +567,17 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 		return nil, nil, fmt.Errorf("can only process responses after processing shares - current state %s", d.state)
 	}
 
+	defer func() {
+		if err == nil {
+			err = d.checkIfEvicted()
+		}
+	}()
+
 	if !d.c.FastSync && len(bundles) == 0 && d.canReceive && d.statuses.CompleteSuccess() {
 		// if we are not in fastsync, we expect only complaints
 		// if there is no complaints all is good
-		res, err := d.computeResult()
-		return res, nil, err
+		res, err = d.computeResult()
+		return
 	}
 
 	var validAuthors []Index
@@ -701,9 +711,12 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 	}
 
 	signature, err := d.sign(bundle)
+	if err != nil {
+		return nil, nil, err
+	}
 	bundle.Signature = signature
 	d.c.Info(fmt.Sprintf("%d justifications returned", len(justifications)))
-	return nil, bundle, err
+	return nil, bundle, nil
 }
 
 // ProcessJustifications takes the justifications of the nodes and returns the
@@ -711,7 +724,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (*Result,
 // this method returns "nil,nil" if this node is a node only present in the old
 // group of the dkg: indeed a node leaving the group don't need to process
 // justifications, and can simply leave the protocol.
-func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle) (*Result, error) {
+func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle) (res *Result, err error) {
 	if !d.canReceive {
 		// an old node leaving the group do not need to process justifications.
 		// Here we simply return nil to avoid requiring higher level library to
@@ -721,6 +734,12 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 	if d.state != JustifPhase {
 		return nil, fmt.Errorf("node can only process justifications after processing responses - current state %s", d.state.String())
 	}
+
+	defer func() {
+		if err == nil {
+			err = d.checkIfEvicted()
+		}
+	}()
 
 	seen := make(map[uint32]bool)
 	for _, bundle := range bundles {
@@ -815,7 +834,8 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		// that should not happen in the threat model but we still returns the
 		// fatal error here so DKG do not finish
 		d.state = FinishPhase
-		return nil, fmt.Errorf("process-justifications: only %d/%d valid deals - dkg abort", allGood, targetThreshold)
+		err = fmt.Errorf("process-justifications: only %d/%d valid deals - dkg abort", allGood, targetThreshold)
+		return
 	}
 	// otherwise it's all good - let's compute the result
 	return d.computeResult()
@@ -1003,6 +1023,19 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 			},
 		},
 	}, nil
+}
+
+func (d *DistKeyGenerator) checkIfEvicted() error {
+	if !d.canIssue {
+		// we can't be evicted as a new node
+		return nil
+	}
+	for _, idx := range d.evicted {
+		if d.oidx == idx {
+			return errors.New("we are being evicted from the qualified dealers - exit DKG")
+		}
+	}
+	return nil
 }
 
 func findPub(list []Node, toFind kyber.Point) (Index, bool) {
