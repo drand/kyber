@@ -569,7 +569,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (res *Res
 
 	defer func() {
 		if err == nil {
-			err = d.checkIfEvicted()
+			err = d.checkIfEvicted(ResponsePhase)
 		}
 	}()
 
@@ -1025,14 +1025,27 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 	}, nil
 }
 
-func (d *DistKeyGenerator) checkIfEvicted() error {
-	if !d.canIssue {
-		// we can't be evicted as a new node
-		return nil
-	}
-	for _, idx := range d.evicted {
-		if d.oidx == idx {
-			return errors.New("we are being evicted from the qualified dealers - exit DKG")
+func (d *DistKeyGenerator) checkIfEvicted(phase Phase) error {
+	if phase == DealPhase || phase == JustifPhase {
+		// here we are processing messages from the current share holders
+		if !d.canIssue {
+			// we can't be evicted as a new node
+			return nil
+		}
+		for _, idx := range d.evicted {
+			if d.oidx == idx {
+				return errors.New("we are being evicted from the qualified dealers - exit DKG")
+			}
+		}
+	} else if phase == ResponsePhase {
+		// here we are processing messages from the new recipients
+		if !d.canReceive {
+			// we can't be evicted as an old node leaving the group here
+		}
+		for _, idx := range d.evictedHolders {
+			if d.nidx == idx {
+				return errors.New("we are being evicted from qualified recipients - exit DKG")
+			}
 		}
 	}
 	return nil

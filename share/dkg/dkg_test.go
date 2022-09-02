@@ -202,7 +202,7 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 
 func TestOwnEviction(t *testing.T) {
 	n := 5
-	thr := 4
+	thr := 3
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 	tns := GenerateTestNodes(suite, n)
 	skippedIndex := rand.Intn(n)
@@ -218,12 +218,12 @@ func TestOwnEviction(t *testing.T) {
 	}
 	SetupNodes(tns, &conf)
 
-	indexToEvict := list[0].Index
+	dealerToEvict := list[0].Index
 	var deals []*DealBundle
 	for _, node := range tns {
 		d, err := node.dkg.Deals()
 		require.NoError(t, err)
-		if node.Index == indexToEvict {
+		if node.Index == dealerToEvict {
 			// we simulate that this node doesn't send its deal
 			continue
 		}
@@ -241,13 +241,13 @@ func TestOwnEviction(t *testing.T) {
 
 	for _, node := range tns {
 		_, _, err := node.dkg.ProcessResponses(respBundles)
-		if node.Index == indexToEvict {
+		if node.Index == dealerToEvict {
 			// we are evicting ourselves here so we should stop doing the DKG
 			require.Error(t, err)
 			continue
 		}
 		require.NoError(t, err)
-		require.True(t, contains(node.dkg.evicted, indexToEvict))
+		require.True(t, contains(node.dkg.evicted, dealerToEvict))
 	}
 }
 
