@@ -1027,6 +1027,11 @@ func (d *DistKeyGenerator) computeDKGResult() (*Result, error) {
 
 var ErrEvicted = errors.New("our node is evicted from list of qualified participants")
 
+// checkIfEvicted returns an error if this node is in one of the two eviction list. This is useful to detect
+// our own misbehaving or lack of connectivity: for example if this node can receive messages from others but are
+// not able to send, everyone will send a complaint about this node, and thus you are going to be evicted.
+// This method checks if you are and returns an error from the DKG to stop it. Once evicted a node's messages are
+// not processed anymore and is out of the protocol.
 func (d *DistKeyGenerator) checkIfEvicted(phase Phase) error {
 	var arr []Index
 	var indexToUse Index
