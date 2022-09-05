@@ -266,7 +266,7 @@ func TestDKGSkipIndex(t *testing.T) {
 	thr := 4
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 	tns := GenerateTestNodes(suite, n)
-	skippedIndex := rand.Intn(n)
+	skippedIndex := 1
 	var newIndex uint32 = 53 // XXX should there be a limit to the index ?
 	tns[skippedIndex].Index = newIndex
 	list := NodesFromTest(tns)
@@ -300,7 +300,7 @@ func TestDKGSkipIndex(t *testing.T) {
 		t.Logf("Added old node newTns[%d].Index = %d\n", len(newTns), newTns[len(newTns)-1].Index)
 	}
 	// we also mess up with indexing here
-	newSkipped := rand.Intn(nodesToAdd)
+	newSkipped := 2
 	t.Logf("skippedIndex: %d, newSkipped: %d\n", skippedIndex, newSkipped)
 	for i := 0; i <= nodesToAdd; i++ {
 		if i == newSkipped {
