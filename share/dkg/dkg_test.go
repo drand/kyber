@@ -197,9 +197,10 @@ func RunDKG(t *testing.T, tns []*TestNode, conf Config,
 
 	for _, node := range tns {
 		res, err := node.dkg.ProcessJustifications(justifs)
-		if !errors.Is(err, ErrEvicted) {
-			require.NoError(t, err)
+		if errors.Is(err, ErrEvicted) {
+			continue
 		}
+		require.NoError(t, err)
 		require.NotNil(t, res)
 		results = append(results, res)
 	}

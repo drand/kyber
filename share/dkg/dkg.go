@@ -735,12 +735,6 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		return nil, fmt.Errorf("node can only process justifications after processing responses - current state %s", d.state.String())
 	}
 
-	defer func() {
-		if err == nil {
-			err = d.checkIfEvicted(JustifPhase)
-		}
-	}()
-
 	seen := make(map[uint32]bool)
 	for _, bundle := range bundles {
 		if bundle == nil {
@@ -812,6 +806,11 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		}
 	}
 
+	// check if we are evicted or not
+	if err := d.checkIfEvicted(JustifPhase); err != nil {
+		return nil, fmt.Errorf("wvicted at justification: %w", err)
+	}
+
 	// check if there is enough dealer entries marked as all success
 	var allGood int
 	for _, n := range d.c.OldNodes {
@@ -834,9 +833,9 @@ func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle)
 		// that should not happen in the threat model but we still returns the
 		// fatal error here so DKG do not finish
 		d.state = FinishPhase
-		err = fmt.Errorf("process-justifications: only %d/%d valid deals - dkg abort", allGood, targetThreshold)
-		return
+		return nil, fmt.Errorf("process-justifications: only %d/%d valid deals - dkg abort", allGood, targetThreshold)
 	}
+
 	// otherwise it's all good - let's compute the result
 	return d.computeResult()
 }
