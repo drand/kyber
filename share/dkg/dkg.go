@@ -385,7 +385,7 @@ func (d *DistKeyGenerator) Deals() (*DealBundle, error) {
 // decrypted and stored. It returns a response bundle if there is any invalid or
 // missing deals. It returns an error if the node is not in the right state, or
 // if there is not enough valid shares, i.e. the dkg is failing already.
-func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (res *ResponseBundle, err error) {
+func (d *DistKeyGenerator) ProcessDeals(bundles []*DealBundle) (*ResponseBundle, error) {
 
 	if d.canIssue && d.state != DealPhase {
 		// oldnode member is not in the right state
