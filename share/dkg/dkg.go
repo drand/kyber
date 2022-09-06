@@ -724,7 +724,7 @@ func (d *DistKeyGenerator) ProcessResponses(bundles []*ResponseBundle) (res *Res
 // this method returns "nil,nil" if this node is a node only present in the old
 // group of the dkg: indeed a node leaving the group don't need to process
 // justifications, and can simply leave the protocol.
-func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle) (res *Result, err error) {
+func (d *DistKeyGenerator) ProcessJustifications(bundles []*JustificationBundle) (*Result, error) {
 	if !d.canReceive {
 		// an old node leaving the group do not need to process justifications.
 		// Here we simply return nil to avoid requiring higher level library to
