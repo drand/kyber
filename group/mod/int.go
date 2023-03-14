@@ -431,12 +431,14 @@ func reverse(dst, src []byte) []byte {
 }
 
 func (i *Int) Hash(h kyber.HashFactory, input io.Reader) (kyber.Scalar, error) {
-	canonicalBitLen := i.MarshalSize() * 8
+	marshalSize := i.MarshalSize()
+	canonicalBitLen := marshalSize * 8
 	actualBitLen := i.M.BitLen()
 	toMask := canonicalBitLen - actualBitLen
-	buffer := make([]byte, i.MarshalSize())
-	if _, err := input.Read(buffer); err != nil {
-		return nil, fmt.Errorf("error reading input hash for scalar: %v", err)
+	buffer := make([]byte, marshalSize)
+	// we also check that the buffer was entirely filled
+	if l, err := input.Read(buffer); err != nil || l != marshalSize {
+		return nil, fmt.Errorf("error reading input (length %d, expected length %d)  for scalar: %v", l, marshalSize, err)
 	}
 	for {
 		hash := h.Hash()
@@ -447,7 +449,7 @@ func (i *Int) Hash(h kyber.HashFactory, input io.Reader) (kyber.Scalar, error) {
 		} else {
 			buffer[len(buffer)-1] = buffer[len(buffer)-1] >> toMask
 		}
-		// NOTE: Here we unmsarshal as a test if the buff is within the modulo
+		// NOTE: Here we unmarshal as a test if the buff is within the modulo
 		// because we know unmarshal does this test. This implementation
 		// is almost generic if not for this line. TO make it truly generic
 		// we would need to add methods to create a scalar from bytes without

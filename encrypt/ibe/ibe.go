@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/drand/kyber"
 	"github.com/drand/kyber/pairing"
+	"github.com/drand/kyber/util/random"
 )
 
 type Ciphertext struct {
@@ -33,15 +34,17 @@ func H4Tag() []byte {
 	return []byte("IBE-H4")
 }
 
-// Encrypt implements the cca identity based encryption scheme from
+// EncryptCCAonG1 implements the CCA identity-based encryption scheme from
 // https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
 // about the scheme.
 // - master is the master key on G1
+// - "identities" (rounds) are on G2
+// - the Ciphertext.U point will be on G1
 // - ID is the ID towards which we encrypt the message
 // - msg is the actual message
 // - seed is the random seed to generate the random element (sigma) of the encryption
 // The suite must produce points which implements the `HashablePoint` interface.
-func Encrypt(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, error) {
+func EncryptCCAonG1(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, error) {
 	if len(msg) > s.Hash().Size() {
 		return nil, errors.New("plaintext too long for the hash function provided")
 	}
@@ -69,7 +72,7 @@ func Encrypt(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, 
 
 	// 5. Compute V = sigma XOR H2(rGid)
 	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
-	hrGid, err := gtToHash(s, rGid, len(msg), H2Tag())
+	hrGid, err := gtToHash(s, rGid, len(msg))
 	if err != nil {
 		return nil, err
 	}
@@ -89,14 +92,15 @@ func Encrypt(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, 
 	}, nil
 }
 
-func Decrypt(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error) {
+// DecryptCCAonG1 decrypts ciphertexts encrypted using EncryptCCAonG1 given a G2 "private" point
+func DecryptCCAonG1(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error) {
 	if len(c.W) > s.Hash().Size() {
 		return nil, errors.New("ciphertext too long for the hash function provided")
 	}
 
 	// 1. Compute sigma = V XOR H2(e(rP,private))
 	rGid := s.Pair(c.U, private)
-	hrGid, err := gtToHash(s, rGid, len(c.W), H2Tag())
+	hrGid, err := gtToHash(s, rGid, len(c.W))
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +123,102 @@ func Decrypt(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error
 		return nil, err
 	}
 	rP := s.G1().Point().Mul(r, s.G1().Point().Base())
+	if !rP.Equal(c.U) {
+		return nil, fmt.Errorf("invalid proof: rP check failed")
+	}
+	return msg, nil
+
+}
+
+// EncryptCCAonG2 implements the CCA identity-based encryption scheme from
+// https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
+// about the scheme.
+// - master is the master key on G2
+// - identities ("round") are on G1
+// - the Ciphertext.U point will be on G2
+// - ID is the ID towards which we encrypt the message
+// - msg is the actual message
+// - seed is the random seed to generate the random element (sigma) of the encryption
+// The suite must produce points which implements the `HashablePoint` interface.
+func EncryptCCAonG2(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphertext, error) {
+	if len(msg) > s.Hash().Size() {
+		return nil, errors.New("plaintext too long for the hash function provided")
+	}
+
+	// 1. Compute Gid = e(Q_id, master)
+	hG2, ok := s.G1().Point().(kyber.HashablePoint)
+	if !ok {
+		return nil, errors.New("point needs to implement `kyber.HashablePoint`")
+	}
+	Qid := hG2.Hash(ID)
+	Gid := s.Pair(Qid, master)
+
+	// 2. Derive random sigma
+	sigma := make([]byte, len(msg))
+	if _, err := rand.Read(sigma); err != nil {
+		return nil, fmt.Errorf("err reading rand sigma: %v", err)
+	}
+	// 3. Derive r from sigma and msg
+	r, err := h3(s, sigma, msg)
+	if err != nil {
+		return nil, err
+	}
+	// 4. Compute U = rP
+	U := s.G2().Point().Mul(r, s.G2().Point().Base())
+
+	// 5. Compute V = sigma XOR H2(rGid)
+	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
+	hrGid, err := gtToHash(s, rGid, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	V := xor(sigma, hrGid)
+
+	// 6. Compute M XOR H(sigma)
+	hsigma, err := h4(s, sigma, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	W := xor(msg, hsigma)
+
+	return &Ciphertext{
+		U: U,
+		V: V,
+		W: W,
+	}, nil
+}
+
+// DecryptCCAonG2 decrypts ciphertexts encrypted using EncryptCCAonG2 given a G1 "private" point
+func DecryptCCAonG2(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte, error) {
+	if len(c.W) > s.Hash().Size() {
+		return nil, errors.New("ciphertext too long for the hash function provided")
+	}
+
+	// 1. Compute sigma = V XOR H2(e(rP,private))
+	rGid := s.Pair(private, c.U)
+	hrGid, err := gtToHash(s, rGid, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+	if len(hrGid) != len(c.V) {
+		return nil, fmt.Errorf("XorSigma is of invalid length: exp %d vs got %d", len(hrGid), len(c.V))
+	}
+	sigma := xor(hrGid, c.V)
+
+	// 2. Compute M = W XOR H4(sigma)
+	hsigma, err := h4(s, sigma, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+
+	msg := xor(hsigma, c.W)
+
+	// 3. Check U = rP
+	r, err := h3(s, sigma, msg)
+	if err != nil {
+		return nil, err
+	}
+	rP := s.G2().Point().Mul(r, s.G2().Point().Base())
 	if !rP.Equal(c.U) {
 		return nil, fmt.Errorf("invalid proof: rP check failed")
 	}
@@ -159,10 +259,10 @@ func h4(s pairing.Suite, sigma []byte, length int) ([]byte, error) {
 	return h4sigma, nil
 }
 
-func gtToHash(s pairing.Suite, gt kyber.Point, length int, dst []byte) ([]byte, error) {
+func gtToHash(s pairing.Suite, gt kyber.Point, length int) ([]byte, error) {
 	hash := s.Hash()
 
-	if _, err := hash.Write(dst); err != nil {
+	if _, err := hash.Write(H2Tag()); err != nil {
 		return nil, errors.New("err writing dst to gtHash")
 	}
 	if _, err := gt.MarshalTo(hash); err != nil {
@@ -186,4 +286,77 @@ func xor(a, b []byte) []byte {
 		res[i] = a[i] ^ b[i]
 	}
 	return res
+}
+
+type CiphertextCPA struct {
+	// commitment
+	RP kyber.Point
+	// ciphertext
+	C []byte
+}
+
+// EncryptCPAonG1 implements the CPA identity-based encryption scheme from
+// https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
+// about the scheme.
+// SigGroup = G2 (large secret identities)
+// KeyGroup = G1 (short master public keys)
+// P random generator of G1
+// dist master key: s, Ppub = s*P \in G1
+// H1: {0,1}^n -> G1
+// H2: GT -> {0,1}^n
+// ID: Qid = H1(ID) = xP \in G2
+// 	secret did = s*Qid \in G2
+// Encrypt:
+// - random r scalar
+// - Gid = e(Ppub, r*Qid) == e(P, P)^(x*s*r) \in GT
+// 		 = GidT
+// - U = rP \in G1,
+// - V = M XOR H2(Gid)) = M XOR H2(GidT)  \in {0,1}^n
+func EncryptCPAonG1(s pairing.Suite, basePoint, public kyber.Point, ID, msg []byte) (*CiphertextCPA, error) {
+	if len(msg)>>16 > 0 {
+		// we're using blake2 as XOF which only outputs 2^16-1 length
+		return nil, errors.New("ciphertext too long")
+	}
+	hashable, ok := s.G2().Point().(kyber.HashablePoint)
+	if !ok {
+		return nil, errors.New("point needs to implement hashablePoint")
+	}
+	Qid := hashable.Hash(ID)
+	r := s.G2().Scalar().Pick(random.New())
+	rP := s.G1().Point().Mul(r, basePoint)
+
+	// e(Qid, Ppub) = e( H(round), s*P) where s is dist secret key
+	Ppub := public
+	rQid := s.G2().Point().Mul(r, Qid)
+	GidT := s.Pair(Ppub, rQid)
+	// H(gid)
+	hGidT, err := gtToHash(s, GidT, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	xored := xor(msg, hGidT)
+
+	return &CiphertextCPA{
+		RP: rP,
+		C:  xored,
+	}, nil
+}
+
+// DecryptCPAonG1 implements the CPA identity-based encryption scheme from
+// https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
+// about the scheme.
+// SigGroup = G2 (large secret identities)
+// KeyGroup = G1 (short master public keys)
+// Decrypt:
+// - V XOR H2(e(U, did)) = V XOR H2(e(rP, s*Qid))
+//   = V XOR H2(e(P, P)^(r*s*x))
+//   = V XOR H2(GidT) = M
+func DecryptCPAonG1(s pairing.Suite, private kyber.Point, c *CiphertextCPA) ([]byte, error) {
+	GidT := s.Pair(c.RP, private)
+	hGidT, err := gtToHash(s, GidT, len(c.C))
+
+	if err != nil {
+		return nil, err
+	}
+	return xor(c.C, hGidT), nil
 }
