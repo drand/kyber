@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -429,36 +428,3 @@ func reverse(dst, src []byte) []byte {
 	}
 	return dst
 }
-
-func (i *Int) Hash(h kyber.HashFactory, input io.Reader) (kyber.Scalar, error) {
-	marshalSize := i.MarshalSize()
-	canonicalBitLen := marshalSize * 8
-	actualBitLen := i.M.BitLen()
-	toMask := canonicalBitLen - actualBitLen
-	buffer := make([]byte, marshalSize)
-	// we also check that the buffer was entirely filled
-	if l, err := input.Read(buffer); err != nil || l != marshalSize {
-		return nil, fmt.Errorf("error reading input (length %d, expected length %d)  for scalar: %v", l, marshalSize, err)
-	}
-	for {
-		hash := h.Hash()
-		_, _ = hash.Write(buffer)
-		copy(buffer, hash.Sum(nil))
-		if i.BO == BigEndian {
-			buffer[0] = buffer[0] >> toMask
-		} else {
-			buffer[len(buffer)-1] = buffer[len(buffer)-1] >> toMask
-		}
-		// NOTE: Here we unmarshal as a test if the buff is within the modulo
-		// because we know unmarshal does this test. This implementation
-		// is almost generic if not for this line. TO make it truly generic
-		// we would need to add methods to create a scalar from bytes without
-		// reduction and a method to check if it is within the modulo on the
-		// Scalar interface.
-		if err := i.UnmarshalBinary(buffer); err == nil {
-			return i, nil
-		}
-	}
-}
-
-var _ kyber.HashableScalar = (*Int)(nil)

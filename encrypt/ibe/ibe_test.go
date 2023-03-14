@@ -131,7 +131,6 @@ func TestInvalidMessageFailsDecryption(t *testing.T) {
 
 func TestVeryLongInputFailsEncryption(t *testing.T) {
 	t.Run("OnG1", func(t *testing.T) {
-
 		suite, Ppub, ID, _, encrypt, _ := newSetting(1)
 		msg := []byte(strings.Repeat("And you have to understand this, that a prince, especially a new one, cannot observe all those things for which men are esteemed", 1000))
 		_, err := encrypt(suite, Ppub, ID, msg)
