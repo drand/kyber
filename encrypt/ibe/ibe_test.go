@@ -45,7 +45,7 @@ func newSetting(i uint) (
 	return suite, Ppub, ID, sQid, EncryptCCAonG2, DecryptCCAonG2
 }
 
-func TestValidTimelockEncryptionDecryptsCorrectly(t *testing.T) {
+func TestValidEncryptionDecrypts(t *testing.T) {
 	t.Run("OnG1", func(t *testing.T) {
 		suite, Ppub, ID, sQid, encrypt, decrypt := newSetting(1)
 		msg := []byte("Hello World\n")
@@ -200,6 +200,7 @@ func TestInvalidWFailsDecryptionBecauseOfLength(t *testing.T) {
 }
 
 func TestBackwardsInteropWithTypescript(t *testing.T) {
+	t.Skip("Typescript library not yet updated to support both G2 keys")
 	suite, _, _, _, _, decrypt := newSetting(1)
 
 	hexToPoint := func(p kyber.Point, input string) (kyber.Point, error) {

@@ -3,6 +3,7 @@ package ibe
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/drand/kyber"
@@ -34,6 +35,12 @@ func H3Tag() []byte {
 func H4Tag() []byte {
 	return []byte("IBE-H4")
 }
+
+//type scheme struct {
+//	sigGroup kyber.Group
+//	keyGroup kyber.Group
+//	pairing  func(signature, public, hashedPoint kyber.Point) bool
+//}
 
 // EncryptCCAonG1 implements the CCA identity-based encryption scheme from
 // https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
@@ -247,19 +254,23 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 	canonicalBitLen := hashable.MarshalSize() * 8
 	actualBitLen := hashable.M.BitLen()
 	toMask := canonicalBitLen - actualBitLen
-	h.Reset()
+	i := uint16(1)
 	for {
-		// we will hash iteratively the previous hash until we get a value
-		// that is suitable as a scalar.
+		h.Reset()
+		// We will hash iteratively: H(i || H("IBE-H3" || sigma || msg)) until we get a
+		// value that is suitable as a scalar.
+		iter := make([]byte, 2)
+		binary.LittleEndian.PutUint16(iter, i)
+		_, _ = h.Write(iter)
 		_, _ = h.Write(buffer)
-		copy(buffer, h.Sum(nil))
+		hashed := h.Sum(nil)
 		// We then apply masking to our resulting bytes at the bit level
 		// but we assume that toMask is a few bits, at most 8.
 		// For instance when using BLS12-381 toMask == 1.
 		if hashable.BO == mod.BigEndian {
-			buffer[0] = buffer[0] >> toMask
+			hashed[0] = hashed[0] >> toMask
 		} else {
-			buffer[len(buffer)-1] = buffer[len(buffer)-1] >> toMask
+			hashed[len(hashed)-1] = hashed[len(hashed)-1] >> toMask
 		}
 		// NOTE: Here we unmarshal as a test if the buffer is within the modulo
 		// because we know unmarshal does this test. This implementation
@@ -267,8 +278,13 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 		// we would need to add methods to create a scalar from bytes without
 		// reduction and a method to check if it is within the modulo on the
 		// Scalar interface.
-		if err := hashable.UnmarshalBinary(buffer); err == nil {
+		if err := hashable.UnmarshalBinary(hashed); err == nil {
 			return hashable, nil
+		}
+
+		i++
+		if i == 65535 {
+			return nil, fmt.Errorf("rejection sampling failure")
 		}
 	}
 }
