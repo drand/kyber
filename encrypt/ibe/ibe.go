@@ -36,12 +36,6 @@ func H4Tag() []byte {
 	return []byte("IBE-H4")
 }
 
-//type scheme struct {
-//	sigGroup kyber.Group
-//	keyGroup kyber.Group
-//	pairing  func(signature, public, hashedPoint kyber.Point) bool
-//}
-
 // EncryptCCAonG1 implements the CCA identity-based encryption scheme from
 // https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
 // about the scheme.
@@ -135,7 +129,6 @@ func DecryptCCAonG1(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 		return nil, fmt.Errorf("invalid proof: rP check failed")
 	}
 	return msg, nil
-
 }
 
 // EncryptCCAonG2 implements the CCA identity-based encryption scheme from
