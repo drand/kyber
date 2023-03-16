@@ -247,8 +247,8 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 	canonicalBitLen := hashable.MarshalSize() * 8
 	actualBitLen := hashable.M.BitLen()
 	toMask := canonicalBitLen - actualBitLen
-	i := uint16(1)
-	for {
+
+	for i := uint16(1); i < 65535; i++ {
 		h.Reset()
 		// We will hash iteratively: H(i || H("IBE-H3" || sigma || msg)) until we get a
 		// value that is suitable as a scalar.
@@ -274,12 +274,9 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 		if err := hashable.UnmarshalBinary(hashed); err == nil {
 			return hashable, nil
 		}
-
-		i++
-		if i == 65535 {
-			return nil, fmt.Errorf("rejection sampling failure")
-		}
 	}
+	// if we didn't return in the for loop then something is wrong
+	return nil, fmt.Errorf("rejection sampling failure")
 }
 
 func h4(s pairing.Suite, sigma []byte, length int) ([]byte, error) {
