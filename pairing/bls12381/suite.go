@@ -17,6 +17,9 @@ var _ pairing.Suite = Suite{}
 
 type Suite struct{}
 
+func NewSuite() (s Suite) { return }
+
+func (s Suite) String() string  { return "bls12381" }
 func (s Suite) G1() kyber.Group { return G1 }
 func (s Suite) G2() kyber.Group { return G2 }
 func (s Suite) GT() kyber.Group { return GT }
