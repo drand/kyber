@@ -112,7 +112,10 @@ func mulLine(ret *gfP12, a, b, c *gfP2) {
 }
 
 // sixuPlus2NAF is 6u+2 in non-adjacent form.
-var sixuPlus2NAF = []int8{0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 1}
+var sixuPlus2NAF = []int8{0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0,
+	0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0, 1, 1,
+	1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1,
+	1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, 1, 1}
 
 // miller implements the Miller loop for calculating the Optimal Ate pairing.
 // See algorithm 1 from http://cryptojedi.org/papers/dclxvi-20100714.pdf
@@ -196,9 +199,8 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	r = newR
 
 	r2.Square(&minusQ2.y)
-	a, b, c, newR = lineFunctionAdd(r, minusQ2, bAffine, r2)
+	a, b, c, _ = lineFunctionAdd(r, minusQ2, bAffine, r2)
 	mulLine(ret, a, b, c)
-	r = newR
 
 	return ret
 }
