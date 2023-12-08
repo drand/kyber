@@ -1,4 +1,4 @@
-// Package bn256 implements a particular bilinear group.
+// package bn254 implements a particular bilinear group.
 //
 // Bilinear groups are the basis of many of the new cryptographic protocols that
 // have been proposed over the past decade. They consist of a triplet of groups
@@ -14,7 +14,7 @@
 // This package previously claimed to operate at a 128-bit security level.
 // However, recent improvements in attacks mean that is no longer true. See
 // https://moderncrypto.org/mail-archive/curves/2016/000740.html.
-package bn256
+package bn254
 
 import (
 	"crypto/cipher"
@@ -29,7 +29,7 @@ import (
 	"go.dedis.ch/fixbuf"
 )
 
-// Suite implements the pairing.Suite interface for the BN256 bilinear pairing.
+// Suite implements the pairing.Suite interface for the BN254 bilinear pairing.
 type Suite struct {
 	*commonSuite
 	g1 *groupG1
@@ -37,7 +37,7 @@ type Suite struct {
 	gt *groupGT
 }
 
-// NewSuite generates and returns a new BN256 pairing suite.
+// NewSuite generates and returns a new BN254 pairing suite.
 func NewSuite() *Suite {
 	s := &Suite{commonSuite: &commonSuite{}}
 	s.g1 = &groupG1{commonSuite: s.commonSuite}
@@ -67,7 +67,7 @@ func NewSuiteGT() *Suite {
 	return s
 }
 
-// NewSuiteRand generates and returns a new BN256 suite seeded by the
+// NewSuiteRand generates and returns a new BN254 suite seeded by the
 // given cipher stream.
 func NewSuiteRand(rand cipher.Stream) *Suite {
 	s := &Suite{commonSuite: &commonSuite{s: rand}}
@@ -77,17 +77,17 @@ func NewSuiteRand(rand cipher.Stream) *Suite {
 	return s
 }
 
-// G1 returns the group G1 of the BN256 pairing.
+// G1 returns the group G1 of the BN254 pairing.
 func (s *Suite) G1() kyber.Group {
 	return s.g1
 }
 
-// G2 returns the group G2 of the BN256 pairing.
+// G2 returns the group G2 of the BN254 pairing.
 func (s *Suite) G2() kyber.Group {
 	return s.g2
 }
 
-// GT returns the group GT of the BN256 pairing.
+// GT returns the group GT of the BN254 pairing.
 func (s *Suite) GT() kyber.Group {
 	return s.gt
 }
@@ -126,7 +126,7 @@ type commonSuite struct {
 // New implements the kyber.Encoding interface.
 func (c *commonSuite) New(t reflect.Type) interface{} {
 	if c.Group == nil {
-		panic("cannot create Point from NewGroup - please use bn256.NewGroupG1")
+		panic("cannot create Point from NewGroup - please use bn254.NewGroupG1")
 	}
 	switch t {
 	case tScalar:
@@ -180,5 +180,5 @@ func (c commonSuite) String() string {
 	if c.Group != nil {
 		return c.Group.String()
 	}
-	return "bn256"
+	return "bn254"
 }

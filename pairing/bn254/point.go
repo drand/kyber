@@ -1,4 +1,4 @@
-package bn256
+package bn254
 
 import (
 	"crypto/cipher"
@@ -62,7 +62,7 @@ func (p *pointG1) Clone() kyber.Point {
 }
 
 func (p *pointG1) EmbedLen() int {
-	panic("bn256.G1: unsupported operation")
+	panic("bn254.G1: unsupported operation")
 }
 
 func (p *pointG1) Embed(data []byte, rand cipher.Stream) kyber.Point {
@@ -72,11 +72,11 @@ func (p *pointG1) Embed(data []byte, rand cipher.Stream) kyber.Point {
 	//   filled with random values, i.e., x = rand || data || len(data).
 	// - Use the Tonelli-Shanks algorithm to compute the y-coordinate.
 	// - Convert the new point to Jacobian coordinates and set it as p.
-	panic("bn256.G1: unsupported operation")
+	panic("bn254.G1: unsupported operation")
 }
 
 func (p *pointG1) Data() ([]byte, error) {
-	panic("bn256.G1: unsupported operation")
+	panic("bn254.G1: unsupported operation")
 }
 
 func (p *pointG1) Add(a, b kyber.Point) kyber.Point {
@@ -143,7 +143,7 @@ func (p *pointG1) MarshalTo(w io.Writer) (int, error) {
 func (p *pointG1) UnmarshalBinary(buf []byte) error {
 	n := p.ElementSize()
 	if len(buf) < p.MarshalSize() {
-		return errors.New("bn256.G1: not enough data")
+		return errors.New("bn254.G1: not enough data")
 	}
 	if p.g == nil {
 		p.g = &curvePoint{}
@@ -168,7 +168,7 @@ func (p *pointG1) UnmarshalBinary(buf []byte) error {
 	}
 
 	if !p.g.IsOnCurve() {
-		return errors.New("bn256.G1: malformed point")
+		return errors.New("bn254.G1: malformed point")
 	}
 
 	return nil
@@ -192,7 +192,7 @@ func (p *pointG1) ElementSize() int {
 }
 
 func (p *pointG1) String() string {
-	return "bn256.G1" + p.g.String()
+	return "bn254.G1" + p.g.String()
 }
 
 func (p *pointG1) Hash(m []byte) kyber.Point {
@@ -299,15 +299,15 @@ func (p *pointG2) Clone() kyber.Point {
 }
 
 func (p *pointG2) EmbedLen() int {
-	panic("bn256.G2: unsupported operation")
+	panic("bn254.G2: unsupported operation")
 }
 
 func (p *pointG2) Embed(data []byte, rand cipher.Stream) kyber.Point {
-	panic("bn256.G2: unsupported operation")
+	panic("bn254.G2: unsupported operation")
 }
 
 func (p *pointG2) Data() ([]byte, error) {
-	panic("bn256.G2: unsupported operation")
+	panic("bn254.G2: unsupported operation")
 }
 
 func (p *pointG2) Add(a, b kyber.Point) kyber.Point {
@@ -386,7 +386,7 @@ func (p *pointG2) UnmarshalBinary(buf []byte) error {
 	}
 
 	if len(buf) < p.MarshalSize() {
-		return errors.New("bn256.G2: not enough data")
+		return errors.New("bn254.G2: not enough data")
 	}
 
 	p.g.x.x.Unmarshal(buf[0*n:])
@@ -408,7 +408,7 @@ func (p *pointG2) UnmarshalBinary(buf []byte) error {
 		p.g.t.SetOne()
 
 		if !p.g.IsOnCurve() {
-			return errors.New("bn256.G2: malformed point")
+			return errors.New("bn254.G2: malformed point")
 		}
 	}
 	return nil
@@ -432,7 +432,7 @@ func (p *pointG2) ElementSize() int {
 }
 
 func (p *pointG2) String() string {
-	return "bn256.G2" + p.g.String()
+	return "bn254.G2" + p.g.String()
 }
 
 type pointGT struct {
@@ -481,15 +481,15 @@ func (p *pointGT) Clone() kyber.Point {
 }
 
 func (p *pointGT) EmbedLen() int {
-	panic("bn256.GT: unsupported operation")
+	panic("bn254.GT: unsupported operation")
 }
 
 func (p *pointGT) Embed(data []byte, rand cipher.Stream) kyber.Point {
-	panic("bn256.GT: unsupported operation")
+	panic("bn254.GT: unsupported operation")
 }
 
 func (p *pointGT) Data() ([]byte, error) {
-	panic("bn256.GT: unsupported operation")
+	panic("bn254.GT: unsupported operation")
 }
 
 func (p *pointGT) Add(a, b kyber.Point) kyber.Point {
@@ -568,7 +568,7 @@ func (p *pointGT) MarshalTo(w io.Writer) (int, error) {
 func (p *pointGT) UnmarshalBinary(buf []byte) error {
 	n := p.ElementSize()
 	if len(buf) < p.MarshalSize() {
-		return errors.New("bn256.GT: not enough data")
+		return errors.New("bn254.GT: not enough data")
 	}
 
 	if p.g == nil {
@@ -623,7 +623,7 @@ func (p *pointGT) ElementSize() int {
 }
 
 func (p *pointGT) String() string {
-	return "bn256.GT" + p.g.String()
+	return "bn254.GT" + p.g.String()
 }
 
 func (p *pointGT) Finalize() kyber.Point {

@@ -1,4 +1,4 @@
-package bn256
+package bn254
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAdapter_SuiteBn256(t *testing.T) {
-	suite := NewSuiteBn256()
+func TestAdapter_SuiteBn254(t *testing.T) {
+	suite := NewSuiteBn254()
 
 	pair := key.NewKeyPair(suite)
 	pubkey, err := pair.Public.MarshalBinary()
@@ -24,5 +24,5 @@ func TestAdapter_SuiteBn256(t *testing.T) {
 	err = privhex.UnmarshalBinary(privkey)
 	require.Nil(t, err)
 
-	require.Equal(t, "bn256.adapter", suite.String())
+	require.Equal(t, "bn254.adapter", suite.String())
 }

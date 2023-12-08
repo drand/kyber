@@ -1,4 +1,4 @@
-package bn256
+package bn254
 
 import (
 	"bytes"

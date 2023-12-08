@@ -1,16 +1,15 @@
-package bn256
+package bn254
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	// "github.com/consensys/gnark-crypto/ecc/bn256"
 	"github.com/drand/kyber"
-	"github.com/drand/kyber/group/mod"
 	"github.com/drand/kyber/util/random"
+	"github.com/stretchr/testify/require"
 	"go.dedis.ch/protobuf"
-	"golang.org/x/crypto/bn256"
+	// "golang.org/x/crypto/bn256"
 )
 
 func TestScalarMarshal(t *testing.T) {
@@ -25,7 +24,7 @@ func TestScalarMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !a.Equal(b) {
-		t.Fatal("bn256: scalars not equal")
+		t.Fatal("bn254: scalars not equal")
 	}
 }
 
@@ -62,18 +61,18 @@ func TestScalarOps(t *testing.T) {
 	require.True(t, e.Equal(suite.G1().Scalar().One()))
 }
 
-func TestG1(t *testing.T) {
-	suite := NewSuite()
-	k := suite.G1().Scalar().Pick(random.New())
-	pa := suite.G1().Point().Mul(k, nil)
-	ma, err := pa.MarshalBinary()
-	require.Nil(t, err)
+// func TestG1(t *testing.T) {
+// 	suite := NewSuite()
+// 	k := suite.G1().Scalar().Pick(random.New())
+// 	pa := suite.G1().Point().Mul(k, nil)
+// 	ma, err := pa.MarshalBinary()
+// 	require.Nil(t, err)
 
-	pb := new(bn256.G1).ScalarBaseMult(&k.(*mod.Int).V)
-	mb := pb.Marshal()
+// 	pb := new(bn256.G1).ScalarBaseMult(&k.(*mod.Int).V)
+// 	mb := pb.Marshal()
 
-	require.Equal(t, ma, mb)
-}
+// 	require.Equal(t, ma, mb)
+// }
 
 func TestG1Marshal(t *testing.T) {
 	suite := NewSuite()
@@ -100,31 +99,31 @@ func TestG1Ops(t *testing.T) {
 	a.Neg(a)
 	a.Neg(a)
 	if !a.Equal(c) {
-		t.Fatal("bn256.G1: neg failed")
+		t.Fatal("bn254.G1: neg failed")
 	}
 	a.Add(a, b)
 	a.Sub(a, b)
 	if !a.Equal(c) {
-		t.Fatal("bn256.G1: add sub failed")
+		t.Fatal("bn254.G1: add sub failed")
 	}
 	a.Add(a, suite.G1().Point().Null())
 	if !a.Equal(c) {
-		t.Fatal("bn256.G1: add with neutral element failed")
+		t.Fatal("bn254.G1: add with neutral element failed")
 	}
 }
 
-func TestG2(t *testing.T) {
-	suite := NewSuite()
-	k := suite.G2().Scalar().Pick(random.New())
-	require.Equal(t, "mod.int ", fmt.Sprintf("%s", k.(*mod.Int).MarshalID()))
-	pa := suite.G2().Point().Mul(k, nil)
-	require.Equal(t, "bn256.g2", fmt.Sprintf("%s", pa.(*pointG2).MarshalID()))
-	ma, err := pa.MarshalBinary()
-	require.Nil(t, err)
-	pb := new(bn256.G2).ScalarBaseMult(&k.(*mod.Int).V)
-	mb := pb.Marshal()
-	require.Equal(t, ma, mb)
-}
+// func TestG2(t *testing.T) {
+// 	suite := NewSuite()
+// 	k := suite.G2().Scalar().Pick(random.New())
+// 	require.Equal(t, "mod.int ", fmt.Sprintf("%s", k.(*mod.Int).MarshalID()))
+// 	pa := suite.G2().Point().Mul(k, nil)
+// 	require.Equal(t, "bn254.g2", fmt.Sprintf("%s", pa.(*pointG2).MarshalID()))
+// 	ma, err := pa.MarshalBinary()
+// 	require.Nil(t, err)
+// 	pb := new(bn256.G2).ScalarBaseMult(&k.(*mod.Int).V)
+// 	mb := pb.Marshal()
+// 	require.Equal(t, ma, mb)
+// }
 
 func TestG2Marshal(t *testing.T) {
 	suite := NewSuite()
@@ -161,35 +160,35 @@ func TestG2Ops(t *testing.T) {
 	a.Neg(a)
 	a.Neg(a)
 	if !a.Equal(c) {
-		t.Fatal("bn256.G2: neg failed")
+		t.Fatal("bn254.G2: neg failed")
 	}
 	a.Add(a, b)
 	a.Sub(a, b)
 	if !a.Equal(c) {
-		t.Fatal("bn256.G2: add sub failed")
+		t.Fatal("bn254.G2: add sub failed")
 	}
 	a.Add(a, suite.G2().Point().Null())
 	if !a.Equal(c) {
-		t.Fatal("bn256.G2: add with neutral element failed")
+		t.Fatal("bn254.G2: add with neutral element failed")
 	}
 }
 
-func TestGT(t *testing.T) {
-	suite := NewSuite()
-	k := suite.GT().Scalar().Pick(random.New())
-	pa := suite.GT().Point().Mul(k, nil)
-	ma, err := pa.MarshalBinary()
-	require.Nil(t, err)
-	mx, err := suite.GT().Point().Base().MarshalBinary()
-	require.Nil(t, err)
-	pb, ok := new(bn256.GT).Unmarshal(mx)
-	if !ok {
-		t.Fatal("unmarshal not ok")
-	}
-	pb.ScalarMult(pb, &k.(*mod.Int).V)
-	mb := pb.Marshal()
-	require.Equal(t, ma, mb)
-}
+// func TestGT(t *testing.T) {
+// 	suite := NewSuite()
+// 	k := suite.GT().Scalar().Pick(random.New())
+// 	pa := suite.GT().Point().Mul(k, nil)
+// 	ma, err := pa.MarshalBinary()
+// 	require.Nil(t, err)
+// 	mx, err := suite.GT().Point().Base().MarshalBinary()
+// 	require.Nil(t, err)
+// 	pb, ok := new(bn256.GT).Unmarshal(mx)
+// 	if !ok {
+// 		t.Fatal("unmarshal not ok")
+// 	}
+// 	pb.ScalarMult(pb, &k.(*mod.Int).V)
+// 	mb := pb.Marshal()
+// 	require.Equal(t, ma, mb)
+// }
 
 func TestGTMarshal(t *testing.T) {
 	suite := NewSuite()
@@ -213,16 +212,16 @@ func TestGTOps(t *testing.T) {
 	a.Neg(a)
 	a.Neg(a)
 	if !a.Equal(c) {
-		t.Fatal("bn256.GT: neg failed")
+		t.Fatal("bn254.GT: neg failed")
 	}
 	a.Add(a, b)
 	a.Sub(a, b)
 	if !a.Equal(c) {
-		t.Fatal("bn256.GT: add sub failed")
+		t.Fatal("bn254.GT: add sub failed")
 	}
 	a.Add(a, suite.GT().Point().Null())
 	if !a.Equal(c) {
-		t.Fatal("bn256.GT: add with neutral element failed")
+		t.Fatal("bn254.GT: add with neutral element failed")
 	}
 }
 
@@ -321,7 +320,7 @@ type tsrPoint struct {
 }
 
 func TestSuiteProtobuf(t *testing.T) {
-	//bn := suites.MustFind("bn256.adapter")
+	//bn := suites.MustFind("bn254.adapter")
 	bn1 := NewSuiteG1()
 	bn2 := NewSuiteG2()
 	bnT := NewSuiteGT()

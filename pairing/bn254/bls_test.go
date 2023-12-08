@@ -1,4 +1,4 @@
-package bn256
+package bn254
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBLSSchemeBN256G1(t *testing.T) {
+func TestBLSSchemeBN254G1(t *testing.T) {
 	suite := NewSuite()
 	s := bls.NewSchemeOnG1(suite)
 	test.SchemeTesting(t, s)

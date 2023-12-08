@@ -1,7 +1,8 @@
-bn256
------
+## bn254
 
-Package bn256 implements a particular bilinear group.
+Package bn254 implements a particular bilinear group.
+
+Note: this _is_ the curve implemented in Ethereum.
 
 Bilinear groups are the basis of many of the new cryptographic protocols that
 have been proposed over the past decade. They consist of a triplet of groups
@@ -20,6 +21,7 @@ https://moderncrypto.org/mail-archive/curves/2016/000740.html.
 ### Benchmarks
 
 branch `master`:
+
 ```
 BenchmarkG1-4        	   10000	    154995 ns/op
 BenchmarkG2-4        	    3000	    541503 ns/op
@@ -28,6 +30,7 @@ BenchmarkPairing-4   	    1000	   1630584 ns/op
 ```
 
 branch `lattices`:
+
 ```
 BenchmarkG1-4        	   20000	     92198 ns/op
 BenchmarkG2-4        	    5000	    340622 ns/op
@@ -36,6 +39,7 @@ BenchmarkPairing-4   	    1000	   1629943 ns/op
 ```
 
 official version:
+
 ```
 BenchmarkG1-4        	    1000	   2268491 ns/op
 BenchmarkG2-4        	     300	   7227637 ns/op
@@ -43,8 +47,7 @@ BenchmarkGT-4        	     100	  15121359 ns/op
 BenchmarkPairing-4   	      50	  20296164 ns/op
 ```
 
-Kyber additions
----------------
+## Kyber additions
 
 The basis for this package is [Cloudflare's bn256 implementation](https://github.com/cloudflare/bn256)
 which itself is an improved version of the [official bn256 package](https://golang.org/x/crypto/bn256).
