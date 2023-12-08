@@ -99,6 +99,8 @@ func (s *Suite) Pair(p1 kyber.Point, p2 kyber.Point) kyber.Point {
 }
 
 func (s *Suite) ValidatePairing(p1, p2, inv1, inv2 kyber.Point) bool {
+	p2.(*pointG2).g.MakeAffine()
+	inv2.(*pointG2).g.MakeAffine()
 	return s.Pair(p1, p2).Equal(s.Pair(inv1, inv2))
 }
 
