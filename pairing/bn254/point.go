@@ -451,12 +451,14 @@ func (p *pointGT) Equal(q kyber.Point) bool {
 }
 
 func (p *pointGT) Null() kyber.Point {
-	p.g.Set(gfP12Inf)
+	// TODO: This can be a precomputed constant
+	p.Pair(newPointG1().Null(), newPointG2().Null())
 	return p
 }
 
 func (p *pointGT) Base() kyber.Point {
-	p.g.Set(gfP12Gen)
+	// TODO: This can be a precomputed constant
+	p.Pair(newPointG1().Base(), newPointG2().Base())
 	return p
 }
 
