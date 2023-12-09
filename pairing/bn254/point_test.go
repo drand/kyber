@@ -13,7 +13,7 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf, err := hex.DecodeString("2ac314dc445e47f096d15425fc294601c1a7d8d27561c4fe9bb452f593f77f4705230e9663123b93c06ce0cd49a893619a92019566f326829a39d6f5ce10579d")
+	refBuf, err := hex.DecodeString("294b2b66eb6cef6d18506fbad92a190ae97f21ef5cc21af4ffaf5b1d68891dd82b224bd4a48a537d3efd9570565c896fc795b3a8ee352d9abc453eb1b026097e")
 	if err != nil {
 		t.Error(err)
 	}
@@ -31,7 +31,7 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf2, err := hex.DecodeString("1444853e16a3f959e9ff1da9c226958f9ee4067f82451bcf88ecc5980cf2c4d50095605d82d456fbb24b21f283842746935e0c42c7f7a8f579894d9bccede5ae")
+	refBuf2, err := hex.DecodeString("1444853e16a3f959e9ff1da9c226958f9ee4067f82451bcf88ecc5980cf2c4d7165d8da4064488e275ea88416df6cb32fa86d5da8ca35a01d8db8b0676a649f2")
 	if err != nil {
 		t.Error(err)
 	}
