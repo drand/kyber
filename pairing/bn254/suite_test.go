@@ -115,18 +115,21 @@ func TestG1Ops(t *testing.T) {
 	}
 }
 
-// func TestG2(t *testing.T) {
-// 	suite := NewSuite()
-// 	k := suite.G2().Scalar().Pick(random.New())
-// 	require.Equal(t, "mod.int ", fmt.Sprintf("%s", k.(*mod.Int).MarshalID()))
-// 	pa := suite.G2().Point().Mul(k, nil)
-// 	require.Equal(t, "bn254.g2", fmt.Sprintf("%s", pa.(*pointG2).MarshalID()))
-// 	ma, err := pa.MarshalBinary()
-// 	require.Nil(t, err)
-// 	pb := new(bn256.G2).ScalarBaseMult(&k.(*mod.Int).V)
-// 	mb := pb.Marshal()
-// 	require.Equal(t, ma, mb)
-// }
+func TestG2(t *testing.T) {
+	suite := NewSuite()
+	k := suite.G2().Scalar().Pick(random.New())
+	require.Equal(t, "mod.int ", fmt.Sprintf("%s", k.(*mod.Int).MarshalID()))
+	pa := suite.G2().Point().Mul(k, nil)
+	require.Equal(t, "bn254.g2", fmt.Sprintf("%s", pa.(*pointG2).MarshalID()))
+	ma, err := pa.MarshalBinary()
+	require.Nil(t, err)
+
+	_, _, _, g2Aff := gnark_bn.Generators()
+	pb := g2Aff.ScalarMultiplication(&g2Aff, &k.(*mod.Int).V)
+	mb := pb.RawBytes()
+
+	require.Equal(t, fmt.Sprintf("%x", ma), fmt.Sprintf("%x", mb))
+}
 
 func TestG2Marshal(t *testing.T) {
 	suite := NewSuite()

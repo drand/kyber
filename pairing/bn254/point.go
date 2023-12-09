@@ -12,9 +12,9 @@ import (
 	"github.com/drand/kyber/group/mod"
 )
 
-var marshalPointID1 = [8]byte{'b', 'n', '2', '5', '6', '.', 'g', '1'}
-var marshalPointID2 = [8]byte{'b', 'n', '2', '5', '6', '.', 'g', '2'}
-var marshalPointIDT = [8]byte{'b', 'n', '2', '5', '6', '.', 'g', 't'}
+var marshalPointID1 = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', '1'}
+var marshalPointID2 = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', '2'}
+var marshalPointIDT = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', 't'}
 
 type pointG1 struct {
 	g *curvePoint
