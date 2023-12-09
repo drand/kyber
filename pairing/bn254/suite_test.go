@@ -2,10 +2,12 @@ package bn254
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
-	// "github.com/consensys/gnark-crypto/ecc/bn256"
+	gnark_bn "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/drand/kyber"
+	"github.com/drand/kyber/group/mod"
 	"github.com/drand/kyber/util/random"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/protobuf"
@@ -61,18 +63,19 @@ func TestScalarOps(t *testing.T) {
 	require.True(t, e.Equal(suite.G1().Scalar().One()))
 }
 
-// func TestG1(t *testing.T) {
-// 	suite := NewSuite()
-// 	k := suite.G1().Scalar().Pick(random.New())
-// 	pa := suite.G1().Point().Mul(k, nil)
-// 	ma, err := pa.MarshalBinary()
-// 	require.Nil(t, err)
+func TestG1(t *testing.T) {
+	suite := NewSuite()
+	k := suite.G1().Scalar().Pick(random.New())
+	pa := suite.G1().Point().Mul(k, nil)
+	ma, err := pa.MarshalBinary()
+	require.Nil(t, err)
 
-// 	pb := new(bn256.G1).ScalarBaseMult(&k.(*mod.Int).V)
-// 	mb := pb.Marshal()
+	_, _, g1Aff, _ := gnark_bn.Generators()
+	pb := g1Aff.ScalarMultiplicationBase(&k.(*mod.Int).V)
+	mb := pb.RawBytes()
 
-// 	require.Equal(t, ma, mb)
-// }
+	require.Equal(t, fmt.Sprintf("%x", ma), fmt.Sprintf("%x", mb))
+}
 
 func TestG1Marshal(t *testing.T) {
 	suite := NewSuite()
