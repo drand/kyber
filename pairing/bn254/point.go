@@ -2,7 +2,6 @@ package bn254
 
 import (
 	"crypto/cipher"
-	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"io"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/drand/kyber"
 	"github.com/drand/kyber/group/mod"
+	"golang.org/x/crypto/sha3"
 )
 
 var marshalPointID1 = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', '1'}
@@ -234,7 +234,9 @@ func hashToPoint(m []byte) (*big.Int, *big.Int) {
 		intCurveB.SetBytes(bufCurveB)
 	}
 
-	h := sha256.Sum256(m)
+	keccak := sha3.NewLegacyKeccak256()
+	keccak.Write(m)
+	h := keccak.Sum(nil)
 	x := new(big.Int).SetBytes(h[:])
 	x.Mod(x, p)
 
