@@ -18,6 +18,7 @@ package bn254
 
 import (
 	"crypto/cipher"
+	"crypto/sha256"
 	"hash"
 	"io"
 	"reflect"
@@ -26,7 +27,6 @@ import (
 	"github.com/drand/kyber/util/random"
 	"github.com/drand/kyber/xof/blake2xb"
 	"go.dedis.ch/fixbuf"
-	"golang.org/x/crypto/sha3"
 )
 
 // Suite implements the pairing.Suite interface for the BN254 bilinear pairing.
@@ -156,9 +156,9 @@ func (c *commonSuite) Write(w io.Writer, objs ...interface{}) error {
 	return fixbuf.Write(w, objs)
 }
 
-// Hash returns a newly instantiated keccak256 hash function.
+// Hash returns a newly instantiated sha256 hash function.
 func (c *commonSuite) Hash() hash.Hash {
-	return sha3.NewLegacyKeccak256()
+	return sha256.New()
 }
 
 // XOF returns a newlly instantiated blake2xb XOF function.
