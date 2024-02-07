@@ -108,13 +108,13 @@ func NewSchemeOnG2(suite pairing.Suite) *Scheme {
 
 // NewKeyPair creates a new BLS signing key pair. The private key x is a scalar
 // and the public key X is a point on curve G2.
-func NewKeyPair(scheme *Scheme, random cipher.Stream) (kyber.Scalar, kyber.Point) {
+func (scheme *Scheme) NewKeyPair(random cipher.Stream) (kyber.Scalar, kyber.Point) {
 	return scheme.blsScheme.NewKeyPair(random)
 }
 
 // Sign creates a BLS signature S = x * H(m) on a message m using the private
 // key x. The signature S is a point on curve G1.
-func Sign(scheme *Scheme, x kyber.Scalar, msg []byte) ([]byte, error) {
+func (scheme *Scheme) Sign(x kyber.Scalar, msg []byte) ([]byte, error) {
 	return scheme.blsScheme.Sign(x, msg)
 }
 
@@ -122,13 +122,13 @@ func Sign(scheme *Scheme, x kyber.Scalar, msg []byte) ([]byte, error) {
 // key X by verifying that the equality e(H(m), X) == e(H(m), x*B2) ==
 // e(x*H(m), B2) == e(S, B2) holds where e is the pairing operation and B2 is
 // the base point from curve G2.
-func Verify(scheme *Scheme, x kyber.Point, msg, sig []byte) error {
+func (scheme *Scheme) Verify(x kyber.Point, msg, sig []byte) error {
 	return scheme.blsScheme.Verify(x, msg, sig)
 }
 
 // AggregateSignatures aggregates the signatures using a coefficient for each
 // one of them where c = H(pk) and H: G2 -> R with R = {1, ..., 2^128}
-func AggregateSignatures(scheme *Scheme, sigs [][]byte, mask *sign.Mask) (kyber.Point, error) {
+func (scheme *Scheme) AggregateSignatures(sigs [][]byte, mask *sign.Mask) (kyber.Point, error) {
 	if len(sigs) != mask.CountEnabled() {
 		return nil, errors.New("length of signatures and public keys must match")
 	}
@@ -165,7 +165,7 @@ func AggregateSignatures(scheme *Scheme, sigs [][]byte, mask *sign.Mask) (kyber.
 // AggregatePublicKeys aggregates a set of public keys (similarly to
 // AggregateSignatures for signatures) using the hash function
 // H: G2 -> R with R = {1, ..., 2^128}.
-func AggregatePublicKeys(scheme *Scheme, mask *sign.Mask) (kyber.Point, error) {
+func (scheme *Scheme) AggregatePublicKeys(mask *sign.Mask) (kyber.Point, error) {
 	coefs, err := hashPointToR(mask.Publics())
 	if err != nil {
 		return nil, err
