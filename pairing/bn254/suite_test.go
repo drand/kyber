@@ -11,7 +11,6 @@ import (
 	"github.com/drand/kyber/util/random"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/protobuf"
-	// "golang.org/x/crypto/bn256"
 )
 
 func TestScalarMarshal(t *testing.T) {
@@ -179,22 +178,23 @@ func TestG2Ops(t *testing.T) {
 	}
 }
 
-// func TestGT(t *testing.T) {
-// 	suite := NewSuite()
-// 	k := suite.GT().Scalar().Pick(random.New())
-// 	pa := suite.GT().Point().Mul(k, nil)
-// 	ma, err := pa.MarshalBinary()
-// 	require.Nil(t, err)
-// 	mx, err := suite.GT().Point().Base().MarshalBinary()
-// 	require.Nil(t, err)
-// 	pb, ok := new(bn256.GT).Unmarshal(mx)
-// 	if !ok {
-// 		t.Fatal("unmarshal not ok")
-// 	}
-// 	pb.ScalarMult(pb, &k.(*mod.Int).V)
-// 	mb := pb.Marshal()
-// 	require.Equal(t, ma, mb)
-// }
+func TestGT(t *testing.T) {
+	suite := NewSuite()
+	k := suite.GT().Scalar().Pick(random.New())
+	pa := suite.GT().Point().Mul(k, nil)
+	ma, err := pa.MarshalBinary()
+	require.Nil(t, err)
+	mx, err := suite.GT().Point().Base().MarshalBinary()
+	require.Nil(t, err)
+	var pb gnark_bn.E12
+	uerr := pb.Unmarshal(mx)
+	if uerr != nil {
+		t.Fatal("unmarshal not ok")
+	}
+	pb.Exp(pb, &k.(*mod.Int).V) // Scalar multiplication
+	mb := pb.Marshal()
+	require.Equal(t, ma, mb)
+}
 
 func TestGTMarshal(t *testing.T) {
 	suite := NewSuite()
