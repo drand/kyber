@@ -133,3 +133,23 @@ func TestMapToPoint(t *testing.T) {
 		t.Error("mapToPoint y1 does not match ref")
 	}
 }
+
+func TestHashToPoint(t *testing.T) {
+	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S") // NB: trimmed down to 32B
+	_msg, err := hex.DecodeString("5cd9c040c49a38737a2fd64a7b3f60fc3ba28d2c7ae6ffe706d2553a22a47da8")
+	if err != nil {
+		t.Error("decode errored", err.Error())
+	}
+	p := hashToPoint(dst, _msg).(*pointG1)
+	p.g.MakeAffine()
+	x, y := &gfP{}, &gfP{}
+	montDecode(x, &p.g.x)
+	montDecode(y, &p.g.y)
+
+	if x.String() != "1b870d01927740dd824783ff8579ad2f5ee3972b956376b39e2e2b46623d2708" {
+		t.Error("hashToPoint x does not match ref")
+	}
+	if y.String() != "1d14281085785309216bd78d3e22f8e344612c2fca31cb8695da67e81efb7925" {
+		t.Error("hashToPoint y does not match ref")
+	}
+}

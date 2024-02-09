@@ -198,77 +198,29 @@ func (p *pointG1) String() string {
 }
 
 func (p *pointG1) Hash(m []byte) kyber.Point {
-	leftPad32 := func(in []byte) []byte {
-		if len(in) > 32 {
-			panic("input cannot be more than 32 bytes")
-		}
+	return hashToPoint(p.dst, m)
+}
 
-		out := make([]byte, 32)
-		copy(out[32-len(in):], in)
-		return out
-	}
-
-	bigX, bigY := hashToPoint(p.dst, m)
-	if p.g == nil {
-		p.g = new(curvePoint)
-	}
-
-	x, y := new(gfP), new(gfP)
-	x.Unmarshal(leftPad32(bigX.Bytes()))
-	y.Unmarshal(leftPad32(bigY.Bytes()))
-	montEncode(x, x)
-	montEncode(y, y)
-
-	p.g.Set(&curvePoint{*x, *y, *newGFp(1), *newGFp(1)})
+func hashToPoint(domain, m []byte) kyber.Point {
+	e0, e1 := hashToField(domain, m)
+	p0 := newPointG1(domain).toPointG1(mapToPoint(e0))
+	p1 := newPointG1(domain).toPointG1(mapToPoint(e1))
+	p := p0.Add(p0, p1)
 	return p
 }
 
-// hashes a byte slice into two points on a curve represented by big.Int
-// ideally we want to do this using gfP, but gfP doesn't have a ModSqrt function
-// func hashToPoint(domain, m []byte) (*big.Int, *big.Int) {
-// 	// we need to convert curveB into a bigInt for our computation
-// 	intCurveB := new(big.Int)
-// 	{
-// 		decodedCurveB := new(gfP)
-// 		montDecode(decodedCurveB, curveB)
-// 		bufCurveB := make([]byte, 32)
-// 		decodedCurveB.Marshal(bufCurveB)
-// 		intCurveB.SetBytes(bufCurveB)
-// 	}
+func (p *pointG1) toPointG1(x, y *big.Int) *pointG1 {
+	gx, gy := new(gfP), new(gfP)
+	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
+	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
+	montEncode(gx, gx)
+	montEncode(gy, gy)
 
-// 	h := keccak256(m)
-// 	x := new(big.Int).SetBytes(h[:])
-// 	x.Mod(x, p)
-
-// 	for {
-// 		xxx := new(big.Int).Mul(x, x)
-// 		xxx.Mul(xxx, x)
-// 		xxx.Mod(xxx, p)
-
-// 		t := new(big.Int).Add(xxx, intCurveB)
-// 		y := new(big.Int).ModSqrt(t, p)
-// 		if y != nil {
-// 			return x, y
-// 		}
-
-// 		x.Add(x, big.NewInt(1))
-// 	}
-// }
-
-func hashToPoint(domain, m []byte) (*big.Int, *big.Int) {
-	// const _msg = Uint8Array.from(Buffer.from(msg.slice(2), 'hex'))
-	// e0, e1 := hashToField(domain, m)
-	// p0 := mapToPoint
-	// const p0 = mapToPoint('0x' + e0.toString(16))
-	// const p1 = mapToPoint('0x' + e1.toString(16))
-	// const p = mcl.add(p0, p1)
-	// p.normalize()
-	// return p
-	return new(big.Int), new(big.Int) // TODO
+	p.g.Set(&curvePoint{*gx, *gy, *newGFp(1), *newGFp(1)})
+	return p
 }
 
 func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
-	// require(_x < N, "mapToPointFT: invalid field element");
 	if x.Cmp(p) >= 0 {
 		panic("mapToPointFT: invalid field element")
 	}
