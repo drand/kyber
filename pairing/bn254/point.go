@@ -203,13 +203,13 @@ func (p *pointG1) Hash(m []byte) kyber.Point {
 
 func hashToPoint(domain, m []byte) kyber.Point {
 	e0, e1 := hashToField(domain, m)
-	p0 := newPointG1(domain).toPointG1(mapToPoint(e0))
-	p1 := newPointG1(domain).toPointG1(mapToPoint(e1))
+	p0 := newPointG1(domain).fromBigInt(mapToPoint(e0))
+	p1 := newPointG1(domain).fromBigInt(mapToPoint(e1))
 	p := p0.Add(p0, p1)
 	return p
 }
 
-func (p *pointG1) toPointG1(x, y *big.Int) *pointG1 {
+func (p *pointG1) fromBigInt(x, y *big.Int) *pointG1 {
 	gx, gy := new(gfP), new(gfP)
 	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
 	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
