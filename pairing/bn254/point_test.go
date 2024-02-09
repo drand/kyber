@@ -88,3 +88,48 @@ func TestHashToField(t *testing.T) {
 		t.Error("hashToField y does not match ref", y, yRef)
 	}
 }
+
+func TestMapToPoint(t *testing.T) {
+	u0, success := new(big.Int).SetString("7105195380181880595384217009108718366423089053558315283835256316808390512725", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+	x0Ref, success := new(big.Int).SetString("19485131671658523517646027848906165907640971588430452127920614621547697012573", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+	y0Ref, success := new(big.Int).SetString("7252485661626054658053752721536032361940074412825453078837989033903251969412", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+
+	x0, y0 := mapToPoint(u0)
+	if x0.Cmp(x0Ref) != 0 {
+		t.Error("mapToPoint x0 does not match ref")
+	}
+	if y0.Cmp(y0Ref) != 0 {
+		t.Error("mapToPoint y0 does not match ref")
+	}
+
+	// mapToPoint(13567046582215973078286025628916924640601491609066934790276475834177075134736) = 21270216163628842882814619483593789921811876624196591135308046587924997960699,77904935200384384081484811809083200449146358086876400084076386002655699523
+	u1, success := new(big.Int).SetString("13567046582215973078286025628916924640601491609066934790276475834177075134736", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+	x1Ref, success := new(big.Int).SetString("21270216163628842882814619483593789921811876624196591135308046587924997960699", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+	y1Ref, success := new(big.Int).SetString("77904935200384384081484811809083200449146358086876400084076386002655699523", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+
+	x1, y1 := mapToPoint(u1)
+	if x1.Cmp(x1Ref) != 0 {
+		t.Error("mapToPoint x1 does not match ref")
+	}
+	if y1.Cmp(y1Ref) != 0 {
+		t.Error("mapToPoint y1 does not match ref")
+	}
+}

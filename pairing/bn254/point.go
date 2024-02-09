@@ -225,34 +225,158 @@ func (p *pointG1) Hash(m []byte) kyber.Point {
 
 // hashes a byte slice into two points on a curve represented by big.Int
 // ideally we want to do this using gfP, but gfP doesn't have a ModSqrt function
+// func hashToPoint(domain, m []byte) (*big.Int, *big.Int) {
+// 	// we need to convert curveB into a bigInt for our computation
+// 	intCurveB := new(big.Int)
+// 	{
+// 		decodedCurveB := new(gfP)
+// 		montDecode(decodedCurveB, curveB)
+// 		bufCurveB := make([]byte, 32)
+// 		decodedCurveB.Marshal(bufCurveB)
+// 		intCurveB.SetBytes(bufCurveB)
+// 	}
+
+// 	h := keccak256(m)
+// 	x := new(big.Int).SetBytes(h[:])
+// 	x.Mod(x, p)
+
+// 	for {
+// 		xxx := new(big.Int).Mul(x, x)
+// 		xxx.Mul(xxx, x)
+// 		xxx.Mod(xxx, p)
+
+// 		t := new(big.Int).Add(xxx, intCurveB)
+// 		y := new(big.Int).ModSqrt(t, p)
+// 		if y != nil {
+// 			return x, y
+// 		}
+
+// 		x.Add(x, big.NewInt(1))
+// 	}
+// }
+
 func hashToPoint(domain, m []byte) (*big.Int, *big.Int) {
-	// we need to convert curveB into a bigInt for our computation
-	intCurveB := new(big.Int)
-	{
-		decodedCurveB := new(gfP)
-		montDecode(decodedCurveB, curveB)
-		bufCurveB := make([]byte, 32)
-		decodedCurveB.Marshal(bufCurveB)
-		intCurveB.SetBytes(bufCurveB)
+	// const _msg = Uint8Array.from(Buffer.from(msg.slice(2), 'hex'))
+	// e0, e1 := hashToField(domain, m)
+	// p0 := mapToPoint
+	// const p0 = mapToPoint('0x' + e0.toString(16))
+	// const p1 = mapToPoint('0x' + e1.toString(16))
+	// const p = mcl.add(p0, p1)
+	// p.normalize()
+	// return p
+	return new(big.Int), new(big.Int) // TODO
+}
+
+func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
+	// require(_x < N, "mapToPointFT: invalid field element");
+	if x.Cmp(p) >= 0 {
+		panic("mapToPointFT: invalid field element")
 	}
 
-	h := keccak256(m)
-	x := new(big.Int).SetBytes(h[:])
-	x.Mod(x, p)
+	// (, bool decision) = sqrt(x);
+	_, decision := modsqrt(x)
 
-	for {
-		xxx := new(big.Int).Mul(x, x)
-		xxx.Mul(xxx, x)
-		xxx.Mod(xxx, p)
+	// uint256 a0 = mulmod(x, x, N);
+	a0 := mulmodp(x, x)
+	// a0 = addmod(a0, 4, N);
+	a0 = addmodp(a0, new(big.Int).SetUint64(4))
+	// uint256 a1 = mulmod(x, Z0, N);
+	a1 := mulmodp(x, Z0)
+	// uint256 a2 = mulmod(a1, a0, N);
+	a2 := mulmodp(a1, a0)
+	// a2 = inverse(a2);
+	a2 = a2.ModInverse(a2, p)
+	// a1 = mulmod(a1, a1, N);
+	a1 = mulmodp(a1, a1)
+	// a1 = mulmod(a1, a2, N);
+	a1 = mulmodp(a1, a2)
 
-		t := new(big.Int).Add(xxx, intCurveB)
-		y := new(big.Int).ModSqrt(t, p)
-		if y != nil {
-			return x, y
+	// // x1
+	// a1 = mulmod(x, a1, N);
+	a1 = mulmodp(x, a1)
+	// x = addmod(Z1, N - a1, N);
+	x = addmodp(Z1, new(big.Int).Sub(p, a1))
+	// check curve
+	// a1 = mulmod(x, x, N);
+	a1 = mulmodp(x, x)
+	// a1 = mulmod(a1, x, N);
+	a1 = mulmodp(a1, x)
+	// a1 = addmod(a1, 3, N);
+	a1 = addmodp(a1, new(big.Int).SetUint64(3))
+	// bool found;
+	// (a1, found) = sqrt(a1);
+	a1, found := modsqrt(a1)
+	if found {
+		if !decision {
+			a1 = new(big.Int).Sub(p, a1)
 		}
-
-		x.Add(x, big.NewInt(1))
+		return x, a1
 	}
+
+	// x2
+	// x = N - addmod(x, 1, N);
+	x = new(big.Int).Sub(p, addmodp(x, new(big.Int).SetUint64(1)))
+	// check curve
+	// a1 = mulmod(x, x, N);
+	a1 = mulmodp(x, x)
+	// a1 = mulmod(a1, x, N);
+	a1 = mulmodp(a1, x)
+	// a1 = addmod(a1, 3, N);
+	a1 = addmodp(a1, new(big.Int).SetUint64(3))
+	// (a1, found) = sqrt(a1);
+	a1, found = modsqrt(a1)
+	if found {
+		if !decision {
+			a1 = new(big.Int).Sub(p, a1)
+		}
+		return x, a1
+	}
+
+	// x3
+	// x = mulmod(a0, a0, N);
+	x = mulmodp(a0, a0)
+	// x = mulmod(x, x, N);
+	x = mulmodp(x, x)
+	// x = mulmod(x, a2, N);
+	x = mulmodp(x, a2)
+	// x = mulmod(x, a2, N);
+	x = mulmodp(x, a2)
+	// x = addmod(x, 1, N);
+	x = addmodp(x, new(big.Int).SetUint64(1))
+	// must be on curve
+	// a1 = mulmod(x, x, N);
+	a1 = mulmodp(x, x)
+	// a1 = mulmod(a1, x, N);
+	a1 = mulmodp(a1, x)
+	// a1 = addmod(a1, 3, N);
+	a1 = addmodp(a1, new(big.Int).SetUint64(3))
+	// (a1, found) = sqrt(a1);
+	a1, found = modsqrt(a1)
+	// require(found, "BLS: bad ft mapping implementation");
+	if !found {
+		panic("BLS: bad ft mapping implementation")
+	}
+	if !decision {
+		a1 = new(big.Int).Sub(p, a1)
+	}
+	return x, a1
+}
+
+func addmodp(a, b *big.Int) *big.Int {
+	result := new(big.Int).Add(a, b)
+	result = result.Mod(result, p)
+	return result
+}
+
+func mulmodp(a, b *big.Int) *big.Int {
+	result := new(big.Int).Mul(a, b)
+	result = result.Mod(result, p)
+	return result
+}
+
+func modsqrt(x *big.Int) (*big.Int, bool) {
+	result := new(big.Int).ModSqrt(x, p)
+	return result, result != nil
 }
 
 func hashToField(domain, m []byte) (*big.Int, *big.Int) {
