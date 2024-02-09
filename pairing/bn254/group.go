@@ -10,6 +10,7 @@ import (
 type groupG1 struct {
 	common
 	*commonSuite
+	dst []byte
 }
 
 func (g *groupG1) String() string {
@@ -17,16 +18,17 @@ func (g *groupG1) String() string {
 }
 
 func (g *groupG1) PointLen() int {
-	return newPointG1().MarshalSize()
+	return newPointG1(g.dst).MarshalSize()
 }
 
 func (g *groupG1) Point() kyber.Point {
-	return newPointG1()
+	return newPointG1(g.dst)
 }
 
 type groupG2 struct {
 	common
 	*commonSuite
+	dst []byte
 }
 
 func (g *groupG2) String() string {
@@ -34,11 +36,11 @@ func (g *groupG2) String() string {
 }
 
 func (g *groupG2) PointLen() int {
-	return newPointG2().MarshalSize()
+	return newPointG2(g.dst).MarshalSize()
 }
 
 func (g *groupG2) Point() kyber.Point {
-	return newPointG2()
+	return newPointG2(g.dst)
 }
 
 type groupGT struct {

@@ -32,14 +32,23 @@ import (
 // Suite implements the pairing.Suite interface for the BN254 bilinear pairing.
 type Suite struct {
 	*commonSuite
-	g1 *groupG1
-	g2 *groupG2
-	gt *groupGT
+	g1       *groupG1
+	g2       *groupG2
+	gt       *groupGT
+	domainG1 []byte
+	domainG2 []byte
 }
+
+var DEFAULT_DOMAIN_G1 = []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
+var DEFAULT_DOMAIN_G2 = []byte("BLS_SIG_BN254G2_XMD:KECCAK-256_SSWU_RO_NUL_")
 
 // NewSuite generates and returns a new BN254 pairing suite.
 func NewSuite() *Suite {
-	s := &Suite{commonSuite: &commonSuite{}}
+	s := &Suite{
+		commonSuite: &commonSuite{},
+		domainG1:    DEFAULT_DOMAIN_G1,
+		domainG2:    DEFAULT_DOMAIN_G2,
+	}
 	s.g1 = &groupG1{commonSuite: s.commonSuite}
 	s.g2 = &groupG2{commonSuite: s.commonSuite}
 	s.gt = &groupGT{commonSuite: s.commonSuite}
@@ -70,11 +79,25 @@ func NewSuiteGT() *Suite {
 // NewSuiteRand generates and returns a new BN254 suite seeded by the
 // given cipher stream.
 func NewSuiteRand(rand cipher.Stream) *Suite {
-	s := &Suite{commonSuite: &commonSuite{s: rand}}
+	s := &Suite{
+		commonSuite: &commonSuite{s: rand},
+		domainG1:    DEFAULT_DOMAIN_G1,
+		domainG2:    DEFAULT_DOMAIN_G2,
+	}
 	s.g1 = &groupG1{commonSuite: s.commonSuite}
 	s.g2 = &groupG2{commonSuite: s.commonSuite}
 	s.gt = &groupGT{commonSuite: s.commonSuite}
 	return s
+}
+
+// Set G1 DST
+func (s *Suite) SetDomainG1(dst []byte) {
+	s.domainG1 = dst
+}
+
+// Set G2 DST
+func (s *Suite) SetDomainG2(dst []byte) {
+	s.domainG2 = dst
 }
 
 // G1 returns the group G1 of the BN254 pairing.

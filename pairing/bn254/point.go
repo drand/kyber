@@ -1,6 +1,7 @@
 package bn254
 
 import (
+	"bytes"
 	"crypto/cipher"
 	"crypto/subtle"
 	"errors"
@@ -17,11 +18,12 @@ var marshalPointID2 = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', '2'}
 var marshalPointIDT = [8]byte{'b', 'n', '2', '5', '4', '.', 'g', 't'}
 
 type pointG1 struct {
-	g *curvePoint
+	g   *curvePoint
+	dst []byte
 }
 
-func newPointG1() *pointG1 {
-	p := &pointG1{g: &curvePoint{}}
+func newPointG1(dst []byte) *pointG1 {
+	p := &pointG1{g: &curvePoint{}, dst: dst}
 	return p
 }
 
@@ -56,7 +58,7 @@ func (p *pointG1) Set(q kyber.Point) kyber.Point {
 
 // Clone makes a hard copy of the point
 func (p *pointG1) Clone() kyber.Point {
-	q := newPointG1()
+	q := newPointG1(p.dst)
 	q.g = p.g.Clone()
 	return q
 }
@@ -87,7 +89,7 @@ func (p *pointG1) Add(a, b kyber.Point) kyber.Point {
 }
 
 func (p *pointG1) Sub(a, b kyber.Point) kyber.Point {
-	q := newPointG1()
+	q := newPointG1(p.dst)
 	return p.Add(a, q.Neg(b))
 }
 
@@ -99,7 +101,7 @@ func (p *pointG1) Neg(q kyber.Point) kyber.Point {
 
 func (p *pointG1) Mul(s kyber.Scalar, q kyber.Point) kyber.Point {
 	if q == nil {
-		q = newPointG1().Base()
+		q = newPointG1(p.dst).Base()
 	}
 	t := s.(*mod.Int).V
 	r := q.(*pointG1).g
@@ -206,7 +208,7 @@ func (p *pointG1) Hash(m []byte) kyber.Point {
 		return out
 	}
 
-	bigX, bigY := hashToPoint(m)
+	bigX, bigY := hashToPoint(p.dst, m)
 	if p.g == nil {
 		p.g = new(curvePoint)
 	}
@@ -223,7 +225,7 @@ func (p *pointG1) Hash(m []byte) kyber.Point {
 
 // hashes a byte slice into two points on a curve represented by big.Int
 // ideally we want to do this using gfP, but gfP doesn't have a ModSqrt function
-func hashToPoint(m []byte) (*big.Int, *big.Int) {
+func hashToPoint(domain, m []byte) (*big.Int, *big.Int) {
 	// we need to convert curveB into a bigInt for our computation
 	intCurveB := new(big.Int)
 	{
@@ -234,9 +236,7 @@ func hashToPoint(m []byte) (*big.Int, *big.Int) {
 		intCurveB.SetBytes(bufCurveB)
 	}
 
-	keccak := sha3.NewLegacyKeccak256()
-	keccak.Write(m)
-	h := keccak.Sum(nil)
+	h := keccak256(m)
 	x := new(big.Int).SetBytes(h[:])
 	x.Mod(x, p)
 
@@ -255,12 +255,141 @@ func hashToPoint(m []byte) (*big.Int, *big.Int) {
 	}
 }
 
-type pointG2 struct {
-	g *twistPoint
+func hashToField(domain, m []byte) (*big.Int, *big.Int) {
+	const u = 48
+	_msg, _ := expandMsgXmd(domain, m, 2*u) // TODO: Handle err/panic
+	x := new(big.Int)
+	y := new(big.Int)
+	x.SetBytes(_msg[0:48]).Mod(x, p)
+	y.SetBytes(_msg[48:96]).Mod(y, p)
+	return x, y
 }
 
-func newPointG2() *pointG2 {
-	p := &pointG2{g: &twistPoint{}}
+func expandMsgXmd(domain, msg []byte, outlen uint) ([]byte, error) {
+	if len(domain) > 32 {
+		return nil, errors.New("bad domain size")
+	}
+
+	// const out: Uint8Array = new Uint8Array(outLen)
+	out := bytes.NewBuffer(make([]byte, 0, outlen))
+
+	// const len0 = 64 + msg.length + 2 + 1 + domain.length + 1
+	len0 := 64 + len(msg) + 2 + 1 + len(domain) + 1
+	// const in0: Uint8Array = new Uint8Array(len0)
+	in0 := bytes.NewBuffer(make([]byte, 64, len0))
+	// // zero pad
+	// let off = 64
+	// // msg
+	// in0.set(msg, off)
+	in0.Write(msg)
+	// off += msg.length
+	// // l_i_b_str
+	// in0.set([(outLen >> 8) & 0xff, outLen & 0xff], off)
+	in0.Write([]byte{byte((outlen >> 8) & 0xff), byte(outlen & 0xff)})
+	// off += 2
+	// // I2OSP(0, 1)
+	// in0.set([0], off)
+	in0.WriteByte(0)
+	// off += 1
+	// // DST_prime
+	// in0.set(domain, off)
+	in0.Write(domain)
+	// off += domain.length
+	// in0.set([domain.length], off)
+	in0.WriteByte(byte(len(domain) & 0xff))
+
+	// const b0 = sha256(in0)
+	b0 := keccak256(in0.Bytes())
+
+	// const len1 = 32 + 1 + domain.length + 1
+	len1 := 32 + 1 + len(domain) + 1
+	// const in1: Uint8Array = new Uint8Array(len1)
+	in1 := bytes.NewBuffer(make([]byte, 0, len1))
+	// // b0
+	// in1.set(getBytes(b0), 0)
+	in1.Write(b0)
+	// off = 32
+	// // I2OSP(1, 1)
+	// in1.set([1], off)
+	in1.WriteByte(1)
+	// off += 1
+	// // DST_prime
+	// in1.set(domain, off)
+	in1.Write(domain)
+	// off += domain.length
+	// in1.set([domain.length], off)
+	in1.WriteByte(byte(len(domain) & 0xff))
+
+	// const b1 = sha256(in1)
+	b1 := keccak256(in1.Bytes())
+
+	// // b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime);
+	// const ell = Math.floor((outLen + 32 - 1) / 32)
+	ell := (outlen + 32 - 1) / 32
+	// let bi = b1
+	bi := b1
+
+	// for (let i = 1; i < ell; i++) {
+	for i := uint(1); i < ell; i++ {
+		//     const ini: Uint8Array = new Uint8Array(32 + 1 + domain.length + 1)
+		ini := bytes.NewBuffer(make([]byte, 0, 32+1+len(domain)+1))
+		//     const nb0 = getBytes(zeroPadBytes(b0, 32))
+		nb0 := zeroPadBytes(b0, 32)
+		//     const nbi = getBytes(zeroPadBytes(bi, 32))
+		nbi := zeroPadBytes(bi, 32)
+		//     const tmp = new Uint8Array(32)
+		tmp := make([]byte, 32)
+		//     for (let i = 0; i < 32; i++) {
+		for j := 0; j < 32; j++ {
+			// tmp[i] = nb0[i] ^ nbi[i]
+			tmp[j] = nb0[j] ^ nbi[j]
+		}
+
+		//     ini.set(tmp, 0)
+		ini.Write(tmp)
+		//     let off = 32
+		//     ini.set([1 + i], off)
+		ini.WriteByte(byte(1 + i))
+		//     off += 1
+		//     ini.set(domain, off)
+		ini.Write(domain)
+		//     off += domain.length
+		//     ini.set([domain.length], off)
+		ini.WriteByte(byte(len(domain)))
+		//     out.set(getBytes(bi), 32 * (i - 1))
+		out.Write(bi)
+		//     bi = sha256(ini)
+		bi = keccak256(ini.Bytes())
+	}
+
+	// out.set(getBytes(bi), 32 * (ell - 1))
+	out.Write(bi)
+	return out.Bytes(), nil
+}
+
+func zeroPadBytes(m []byte, outlen int) []byte {
+	if len(m) < outlen {
+		padlen := outlen - len(m)
+		out := bytes.NewBuffer(make([]byte, padlen, outlen))
+		return out.Bytes()
+	}
+	return m
+}
+
+func keccak256(m []byte) []byte {
+	keccak := sha3.NewLegacyKeccak256()
+	keccak.Write(m)
+	h := keccak.Sum(nil)
+	return h
+}
+
+type pointG2 struct {
+	g   *twistPoint
+	dst []byte
+}
+
+func newPointG2(dst []byte) *pointG2 {
+	p := &pointG2{g: &twistPoint{}, dst: dst}
 	return p
 }
 
@@ -295,7 +424,7 @@ func (p *pointG2) Set(q kyber.Point) kyber.Point {
 
 // Clone makes a hard copy of the field
 func (p *pointG2) Clone() kyber.Point {
-	q := newPointG2()
+	q := newPointG2(p.dst)
 	q.g = p.g.Clone()
 	return q
 }
@@ -320,7 +449,7 @@ func (p *pointG2) Add(a, b kyber.Point) kyber.Point {
 }
 
 func (p *pointG2) Sub(a, b kyber.Point) kyber.Point {
-	q := newPointG2()
+	q := newPointG2(p.dst)
 	return p.Add(a, q.Neg(b))
 }
 
@@ -332,7 +461,7 @@ func (p *pointG2) Neg(q kyber.Point) kyber.Point {
 
 func (p *pointG2) Mul(s kyber.Scalar, q kyber.Point) kyber.Point {
 	if q == nil {
-		q = newPointG2().Base()
+		q = newPointG2(p.dst).Base()
 	}
 	t := s.(*mod.Int).V
 	r := q.(*pointG2).g
@@ -454,13 +583,13 @@ func (p *pointGT) Equal(q kyber.Point) bool {
 
 func (p *pointGT) Null() kyber.Point {
 	// TODO: This can be a precomputed constant
-	p.Pair(newPointG1().Null(), newPointG2().Null())
+	p.Pair(newPointG1([]byte{}).Null(), newPointG2([]byte{}).Null())
 	return p
 }
 
 func (p *pointGT) Base() kyber.Point {
 	// TODO: This can be a precomputed constant
-	p.Pair(newPointG1().Base(), newPointG2().Base())
+	p.Pair(newPointG1([]byte{}).Base(), newPointG2([]byte{}).Base())
 	return p
 }
 

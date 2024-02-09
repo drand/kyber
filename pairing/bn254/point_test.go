@@ -3,6 +3,7 @@ package bn254
 import (
 	"bytes"
 	"encoding/hex"
+	"math/big"
 	"testing"
 )
 
@@ -37,5 +38,53 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	}
 	if !bytes.Equal(p2Buf, refBuf2) {
 		t.Error("hash does not match reference")
+	}
+}
+
+func TestExpandMsg(t *testing.T) {
+	_msg, err := hex.DecodeString("cd91b51a7278becadf9b0c673dad805a0e36dfaf9bc86bc0a22303c69c0133b4")
+	if err != nil {
+		t.Error("decode errored", err.Error())
+	}
+
+	expanded, err := expandMsgXmd(
+		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S"), // NB: trimmed down to 32B
+		_msg,
+		96,
+	)
+	if err != nil {
+		t.Error("expandMsg errored", err.Error())
+	}
+
+	if hex.EncodeToString(expanded) != "fdb291d400e5067af2451380c64d973c2064e443427645680ef6826a3c8dde0d51be4a4fbf68db785869e9671525dbbcb17b349e6def2afe8ae92848f625b539c49bde740c170b03ee5ec8801401d69342c175b60746b4df740ba61b71f10688" {
+		t.Error("expandMsg does not match ref")
+	}
+}
+
+func TestHashToField(t *testing.T) {
+	_msg, err := hex.DecodeString("b6cd92b293a7e066f947d55a3d3f6ff1d12491b9418a75eb7eda9e0452f8a802")
+	if err != nil {
+		t.Error("decode errored", err.Error())
+	}
+
+	x, y := hashToField(
+		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S"), // NB: trimmed down to 32B
+		_msg,
+	)
+
+	xRef, success := new(big.Int).SetString("21388573764901551231292644833553850174866019666418231876069068938683826780505", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+	yRef, success := new(big.Int).SetString("19256864419500893614579951126008683517059415729946874015264273858774622719340", 10)
+	if !success {
+		t.Error("bigint encode errored")
+	}
+
+	if x.Cmp(xRef) != 0 {
+		t.Error("hashToField x does not match ref", x, xRef)
+	}
+	if y.Cmp(yRef) != 0 {
+		t.Error("hashToField y does not match ref", y, yRef)
 	}
 }
