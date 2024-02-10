@@ -8,13 +8,15 @@ import (
 )
 
 func TestPointG1_HashToPoint(t *testing.T) {
+	domain := []byte("domain_separation_tag_test_12345")
+
 	// reference test 1
-	p := new(pointG1).Hash([]byte("abc"))
+	p := newPointG1(domain).Hash([]byte("abc"))
 	pBuf, err := p.MarshalBinary()
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf, err := hex.DecodeString("1d9f1708091409260f8435f1a5477e0a29507c51d1f2d5a9b0246978c8b06efe04fc97f7d6ed51fdf2920eea84eb1be09aa77322c1111593cde486d72188402f")
+	refBuf, err := hex.DecodeString("1162012021d4e0f95f3d1581abb47965f00fbe4d687c2862d96c6bcd1d1b8c2802edb2671f058e94c55bf159f3b77c66861f48e92eadaaf490bd40298bc7250d")
 	if err != nil {
 		t.Error(err)
 	}
@@ -27,12 +29,12 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	p2 := new(pointG1).Hash(buf2)
+	p2 := newPointG1(domain).Hash(buf2)
 	p2Buf, err := p2.MarshalBinary()
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf2, err := hex.DecodeString("27f3f48152dff5c587f23f29b86cb300699b1bd5aba9629d8d8780d5b07b60c11b34cf4d571612c7d3ede8a359251abdfa1aaa390056cd06c0c8e6a786e5fe81")
+	refBuf2, err := hex.DecodeString("0663a666beede006480859f65d7057e783e0d7b3bc31ac05350c97358a92170909963f538b0c0d8d55fcd77bb1cf718837cb1cc69c41a2a7531fc278ac8d2cc4")
 	if err != nil {
 		t.Error(err)
 	}
