@@ -59,7 +59,7 @@ func TestExpandMsg(t *testing.T) {
 	}
 
 	if hex.EncodeToString(expanded) != "fdb291d400e5067af2451380c64d973c2064e443427645680ef6826a3c8dde0d51be4a4fbf68db785869e9671525dbbcb17b349e6def2afe8ae92848f625b539c49bde740c170b03ee5ec8801401d69342c175b60746b4df740ba61b71f10688" {
-		t.Error("expandMsg does not match ref")
+		t.Error("expandMsg does not match ref", hex.EncodeToString(expanded))
 	}
 }
 

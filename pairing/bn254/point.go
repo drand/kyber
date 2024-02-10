@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -231,12 +232,15 @@ func hashToField(domain, m []byte) (*big.Int, *big.Int) {
 }
 
 // `mapToPoint` implements a specialised SW mapping for BN curves from the paper
-//  Fouque, P.-A. and M. Tibouchi, "Indifferentiable Hashing to Barreto--Naehrig Curves",
-//	In Progress in Cryptology -
-// 	LATINCRYPT 2012, pages 1-17,
-// 	DOI 10.1007/978-3-642-33481-8_1, 2012,
-// 	<https://doi.org/10.1007/978-3-642-33481-8_1>.
+//
+//	 Fouque, P.-A. and M. Tibouchi, "Indifferentiable Hashing to Barreto--Naehrig Curves",
+//		In Progress in Cryptology -
+//		LATINCRYPT 2012, pages 1-17,
+//		DOI 10.1007/978-3-642-33481-8_1, 2012,
+//		<https://doi.org/10.1007/978-3-642-33481-8_1>.
+//
 // Ref implementations:
+//
 //	https://github.com/herumi/mcl/blob/5f4449efd08388009f9abce06c44fc26730193e7/include/mcl/bn.hpp#L343
 //	https://github.com/thehubbleproject/hubble-contracts/blob/f1c13fe4e1a0dc9ab1f150895de7c0e654ee46b0/contracts/libs/BLS.sol#L139
 func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
@@ -305,54 +309,47 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 
 // `expandMsgXmd` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
 // where H is keccak256
-func expandMsgXmd(domain, msg []byte, outlen uint) []byte {
-	if len(domain) > 32 {
-		panic("bad domain size")
+func expandMsgXmd(domain, msg []byte, outlen int) []byte {
+	b_in_bytes := 32
+	r_in_bytes := b_in_bytes * 2
+	ell := (outlen + b_in_bytes - 1) / b_in_bytes
+	if ell > 255 {
+		panic(fmt.Sprintf("invalid xmd length: %d", ell))
+	}
+	// DST_prime <- domain<len(domain)>|len(domain)<1>
+	DST_prime := bytes.NewBuffer(make([]byte, 0, len(domain)+1))
+	DST_prime.Write(domain)
+	DST_prime.WriteByte(byte(len(domain)))
+	// ba_input <- keccak( Z_pad<r_in_bytes>|msg<var>|l_i_b_str<2>|0<1>|DST_prime<var> )
+	ba_input := bytes.NewBuffer(make([]byte, r_in_bytes, r_in_bytes+len(msg)+2+1+DST_prime.Len()))
+	// write msg to offset at r_in_bytes
+	ba_input.Write(msg)
+	ba_input.WriteByte(byte((outlen >> 8) & 0xff)) // l_i_b_str
+	ba_input.WriteByte(byte(outlen & 0xff))        // l_i_b_str
+	ba_input.WriteByte(0)
+	ba_input.Write(DST_prime.Bytes()) // DST_prime
+	ba := new(big.Int).SetBytes(keccak256(ba_input.Bytes()))
+
+	b := make([]*big.Int, ell+1)
+
+	b0_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
+	b0_input.Write(ba.Bytes())
+	b0_input.WriteByte(1)
+	b0_input.Write(DST_prime.Bytes())
+	b[0] = new(big.Int).SetBytes(keccak256(b0_input.Bytes()))
+	for i := 1; i <= ell; i++ {
+		bi_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
+		bi_input.Write(new(big.Int).Set(ba).Xor(ba, b[i-1]).Bytes())
+		bi_input.WriteByte(byte(i + 1))
+		bi_input.Write(DST_prime.Bytes())
+		b[i] = new(big.Int).SetBytes(keccak256(bi_input.Bytes()))
 	}
 
-	out := bytes.NewBuffer(make([]byte, 0, outlen))
-
-	len0 := 64 + len(msg) + 2 + 1 + len(domain) + 1
-	in0 := bytes.NewBuffer(make([]byte, 64, len0))
-	in0.Write(msg)
-	in0.Write([]byte{byte((outlen >> 8) & 0xff), byte(outlen & 0xff)})
-	in0.WriteByte(0)
-	in0.Write(domain)
-	in0.WriteByte(byte(len(domain) & 0xff))
-
-	b0 := keccak256(in0.Bytes())
-
-	len1 := 32 + 1 + len(domain) + 1
-	in1 := bytes.NewBuffer(make([]byte, 0, len1))
-	in1.Write(b0)
-	in1.WriteByte(1)
-	in1.Write(domain)
-	in1.WriteByte(byte(len(domain) & 0xff))
-
-	b1 := keccak256(in1.Bytes())
-
-	ell := (outlen + 32 - 1) / 32
-	bi := b1
-
-	for i := uint(1); i < ell; i++ {
-		nb0 := zeroPadBytes(b0, 32)
-		nbi := zeroPadBytes(bi, 32)
-		tmp := make([]byte, 32)
-		for j := 0; j < 32; j++ {
-			tmp[j] = nb0[j] ^ nbi[j]
-		}
-
-		ini := bytes.NewBuffer(make([]byte, 0, 32+1+len(domain)+1))
-		ini.Write(tmp)
-		ini.WriteByte(byte(1 + i))
-		ini.Write(domain)
-		ini.WriteByte(byte(len(domain)))
-		out.Write(bi)
-		bi = keccak256(ini.Bytes())
+	pseudo_random_bytes := bytes.NewBuffer(make([]byte, 0, outlen))
+	for i := 0; i < outlen/32; i++ {
+		pseudo_random_bytes.Write(b[i].Bytes())
 	}
-
-	out.Write(bi)
-	return out.Bytes()
+	return pseudo_random_bytes.Bytes()
 }
 
 func addmodp(a, b *big.Int) *big.Int {
