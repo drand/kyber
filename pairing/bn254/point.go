@@ -310,6 +310,9 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 // `expandMsgXmd` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
 // where H is keccak256
 func expandMsgXmd(domain, msg []byte, outlen int) []byte {
+	if len(domain) > 255 {
+		panic(fmt.Sprintf("invalid DST length: %d", len(domain)))
+	}
 	b_in_bytes := 32
 	r_in_bytes := b_in_bytes * 2
 	ell := (outlen + b_in_bytes - 1) / b_in_bytes
