@@ -47,7 +47,7 @@ func TestExpandMsg(t *testing.T) {
 		t.Error("decode errored", err.Error())
 	}
 
-	expanded, err := expandMsgXmd(
+	expanded := expandMsgXmd(
 		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S"), // NB: trimmed down to 32B
 		_msg,
 		96,

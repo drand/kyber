@@ -27,6 +27,17 @@ func newPointG1(dst []byte) *pointG1 {
 	return p
 }
 
+func (p *pointG1) fromBigInt(x, y *big.Int) *pointG1 {
+	gx, gy := new(gfP), new(gfP)
+	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
+	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
+	montEncode(gx, gx)
+	montEncode(gy, gy)
+
+	p.g.Set(&curvePoint{*gx, *gy, *newGFp(1), *newGFp(1)})
+	return p
+}
+
 func (p *pointG1) Equal(q kyber.Point) bool {
 	x, _ := p.MarshalBinary()
 	y, _ := q.MarshalBinary()
@@ -209,54 +220,47 @@ func hashToPoint(domain, m []byte) kyber.Point {
 	return p
 }
 
-func (p *pointG1) fromBigInt(x, y *big.Int) *pointG1 {
-	gx, gy := new(gfP), new(gfP)
-	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
-	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
-	montEncode(gx, gx)
-	montEncode(gy, gy)
-
-	p.g.Set(&curvePoint{*gx, *gy, *newGFp(1), *newGFp(1)})
-	return p
+func hashToField(domain, m []byte) (*big.Int, *big.Int) {
+	const u = 48
+	_msg := expandMsgXmd(domain, m, 2*u) // TODO: Handle err/panic
+	x := new(big.Int)
+	y := new(big.Int)
+	x.SetBytes(_msg[0:48]).Mod(x, p)
+	y.SetBytes(_msg[48:96]).Mod(y, p)
+	return x, y
 }
 
+// `mapToPoint` implements a specialised SW mapping for BN curves from the paper
+//  Fouque, P.-A. and M. Tibouchi, "Indifferentiable Hashing to Barreto--Naehrig Curves",
+//	In Progress in Cryptology -
+// 	LATINCRYPT 2012, pages 1-17,
+// 	DOI 10.1007/978-3-642-33481-8_1, 2012,
+// 	<https://doi.org/10.1007/978-3-642-33481-8_1>.
+// Ref implementations:
+//	https://github.com/herumi/mcl/blob/5f4449efd08388009f9abce06c44fc26730193e7/include/mcl/bn.hpp#L343
+//	https://github.com/thehubbleproject/hubble-contracts/blob/f1c13fe4e1a0dc9ab1f150895de7c0e654ee46b0/contracts/libs/BLS.sol#L139
 func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 	if x.Cmp(p) >= 0 {
 		panic("mapToPointFT: invalid field element")
 	}
 
-	// (, bool decision) = sqrt(x);
 	_, decision := modsqrt(x)
 
-	// uint256 a0 = mulmod(x, x, N);
 	a0 := mulmodp(x, x)
-	// a0 = addmod(a0, 4, N);
 	a0 = addmodp(a0, new(big.Int).SetUint64(4))
-	// uint256 a1 = mulmod(x, Z0, N);
 	a1 := mulmodp(x, Z0)
-	// uint256 a2 = mulmod(a1, a0, N);
 	a2 := mulmodp(a1, a0)
-	// a2 = inverse(a2);
 	a2 = a2.ModInverse(a2, p)
-	// a1 = mulmod(a1, a1, N);
 	a1 = mulmodp(a1, a1)
-	// a1 = mulmod(a1, a2, N);
 	a1 = mulmodp(a1, a2)
 
-	// // x1
-	// a1 = mulmod(x, a1, N);
+	// x1
 	a1 = mulmodp(x, a1)
-	// x = addmod(Z1, N - a1, N);
 	x = addmodp(Z1, new(big.Int).Sub(p, a1))
 	// check curve
-	// a1 = mulmod(x, x, N);
 	a1 = mulmodp(x, x)
-	// a1 = mulmod(a1, x, N);
 	a1 = mulmodp(a1, x)
-	// a1 = addmod(a1, 3, N);
 	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	// bool found;
-	// (a1, found) = sqrt(a1);
 	a1, found := modsqrt(a1)
 	if found {
 		if !decision {
@@ -266,16 +270,11 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 	}
 
 	// x2
-	// x = N - addmod(x, 1, N);
 	x = new(big.Int).Sub(p, addmodp(x, new(big.Int).SetUint64(1)))
 	// check curve
-	// a1 = mulmod(x, x, N);
 	a1 = mulmodp(x, x)
-	// a1 = mulmod(a1, x, N);
 	a1 = mulmodp(a1, x)
-	// a1 = addmod(a1, 3, N);
 	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	// (a1, found) = sqrt(a1);
 	a1, found = modsqrt(a1)
 	if found {
 		if !decision {
@@ -285,26 +284,16 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 	}
 
 	// x3
-	// x = mulmod(a0, a0, N);
 	x = mulmodp(a0, a0)
-	// x = mulmod(x, x, N);
 	x = mulmodp(x, x)
-	// x = mulmod(x, a2, N);
 	x = mulmodp(x, a2)
-	// x = mulmod(x, a2, N);
 	x = mulmodp(x, a2)
-	// x = addmod(x, 1, N);
 	x = addmodp(x, new(big.Int).SetUint64(1))
 	// must be on curve
-	// a1 = mulmod(x, x, N);
 	a1 = mulmodp(x, x)
-	// a1 = mulmod(a1, x, N);
 	a1 = mulmodp(a1, x)
-	// a1 = addmod(a1, 3, N);
 	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	// (a1, found) = sqrt(a1);
 	a1, found = modsqrt(a1)
-	// require(found, "BLS: bad ft mapping implementation");
 	if !found {
 		panic("BLS: bad ft mapping implementation")
 	}
@@ -312,6 +301,58 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 		a1 = new(big.Int).Sub(p, a1)
 	}
 	return x, a1
+}
+
+// `expandMsgXmd` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
+// where H is keccak256
+func expandMsgXmd(domain, msg []byte, outlen uint) []byte {
+	if len(domain) > 32 {
+		panic("bad domain size")
+	}
+
+	out := bytes.NewBuffer(make([]byte, 0, outlen))
+
+	len0 := 64 + len(msg) + 2 + 1 + len(domain) + 1
+	in0 := bytes.NewBuffer(make([]byte, 64, len0))
+	in0.Write(msg)
+	in0.Write([]byte{byte((outlen >> 8) & 0xff), byte(outlen & 0xff)})
+	in0.WriteByte(0)
+	in0.Write(domain)
+	in0.WriteByte(byte(len(domain) & 0xff))
+
+	b0 := keccak256(in0.Bytes())
+
+	len1 := 32 + 1 + len(domain) + 1
+	in1 := bytes.NewBuffer(make([]byte, 0, len1))
+	in1.Write(b0)
+	in1.WriteByte(1)
+	in1.Write(domain)
+	in1.WriteByte(byte(len(domain) & 0xff))
+
+	b1 := keccak256(in1.Bytes())
+
+	ell := (outlen + 32 - 1) / 32
+	bi := b1
+
+	for i := uint(1); i < ell; i++ {
+		nb0 := zeroPadBytes(b0, 32)
+		nbi := zeroPadBytes(bi, 32)
+		tmp := make([]byte, 32)
+		for j := 0; j < 32; j++ {
+			tmp[j] = nb0[j] ^ nbi[j]
+		}
+
+		ini := bytes.NewBuffer(make([]byte, 0, 32+1+len(domain)+1))
+		ini.Write(tmp)
+		ini.WriteByte(byte(1 + i))
+		ini.Write(domain)
+		ini.WriteByte(byte(len(domain)))
+		out.Write(bi)
+		bi = keccak256(ini.Bytes())
+	}
+
+	out.Write(bi)
+	return out.Bytes()
 }
 
 func addmodp(a, b *big.Int) *big.Int {
@@ -329,118 +370,6 @@ func mulmodp(a, b *big.Int) *big.Int {
 func modsqrt(x *big.Int) (*big.Int, bool) {
 	result := new(big.Int).ModSqrt(x, p)
 	return result, result != nil
-}
-
-func hashToField(domain, m []byte) (*big.Int, *big.Int) {
-	const u = 48
-	_msg, _ := expandMsgXmd(domain, m, 2*u) // TODO: Handle err/panic
-	x := new(big.Int)
-	y := new(big.Int)
-	x.SetBytes(_msg[0:48]).Mod(x, p)
-	y.SetBytes(_msg[48:96]).Mod(y, p)
-	return x, y
-}
-
-func expandMsgXmd(domain, msg []byte, outlen uint) ([]byte, error) {
-	if len(domain) > 32 {
-		return nil, errors.New("bad domain size")
-	}
-
-	// const out: Uint8Array = new Uint8Array(outLen)
-	out := bytes.NewBuffer(make([]byte, 0, outlen))
-
-	// const len0 = 64 + msg.length + 2 + 1 + domain.length + 1
-	len0 := 64 + len(msg) + 2 + 1 + len(domain) + 1
-	// const in0: Uint8Array = new Uint8Array(len0)
-	in0 := bytes.NewBuffer(make([]byte, 64, len0))
-	// // zero pad
-	// let off = 64
-	// // msg
-	// in0.set(msg, off)
-	in0.Write(msg)
-	// off += msg.length
-	// // l_i_b_str
-	// in0.set([(outLen >> 8) & 0xff, outLen & 0xff], off)
-	in0.Write([]byte{byte((outlen >> 8) & 0xff), byte(outlen & 0xff)})
-	// off += 2
-	// // I2OSP(0, 1)
-	// in0.set([0], off)
-	in0.WriteByte(0)
-	// off += 1
-	// // DST_prime
-	// in0.set(domain, off)
-	in0.Write(domain)
-	// off += domain.length
-	// in0.set([domain.length], off)
-	in0.WriteByte(byte(len(domain) & 0xff))
-
-	// const b0 = sha256(in0)
-	b0 := keccak256(in0.Bytes())
-
-	// const len1 = 32 + 1 + domain.length + 1
-	len1 := 32 + 1 + len(domain) + 1
-	// const in1: Uint8Array = new Uint8Array(len1)
-	in1 := bytes.NewBuffer(make([]byte, 0, len1))
-	// // b0
-	// in1.set(getBytes(b0), 0)
-	in1.Write(b0)
-	// off = 32
-	// // I2OSP(1, 1)
-	// in1.set([1], off)
-	in1.WriteByte(1)
-	// off += 1
-	// // DST_prime
-	// in1.set(domain, off)
-	in1.Write(domain)
-	// off += domain.length
-	// in1.set([domain.length], off)
-	in1.WriteByte(byte(len(domain) & 0xff))
-
-	// const b1 = sha256(in1)
-	b1 := keccak256(in1.Bytes())
-
-	// // b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime);
-	// const ell = Math.floor((outLen + 32 - 1) / 32)
-	ell := (outlen + 32 - 1) / 32
-	// let bi = b1
-	bi := b1
-
-	// for (let i = 1; i < ell; i++) {
-	for i := uint(1); i < ell; i++ {
-		//     const ini: Uint8Array = new Uint8Array(32 + 1 + domain.length + 1)
-		ini := bytes.NewBuffer(make([]byte, 0, 32+1+len(domain)+1))
-		//     const nb0 = getBytes(zeroPadBytes(b0, 32))
-		nb0 := zeroPadBytes(b0, 32)
-		//     const nbi = getBytes(zeroPadBytes(bi, 32))
-		nbi := zeroPadBytes(bi, 32)
-		//     const tmp = new Uint8Array(32)
-		tmp := make([]byte, 32)
-		//     for (let i = 0; i < 32; i++) {
-		for j := 0; j < 32; j++ {
-			// tmp[i] = nb0[i] ^ nbi[i]
-			tmp[j] = nb0[j] ^ nbi[j]
-		}
-
-		//     ini.set(tmp, 0)
-		ini.Write(tmp)
-		//     let off = 32
-		//     ini.set([1 + i], off)
-		ini.WriteByte(byte(1 + i))
-		//     off += 1
-		//     ini.set(domain, off)
-		ini.Write(domain)
-		//     off += domain.length
-		//     ini.set([domain.length], off)
-		ini.WriteByte(byte(len(domain)))
-		//     out.set(getBytes(bi), 32 * (i - 1))
-		out.Write(bi)
-		//     bi = sha256(ini)
-		bi = keccak256(ini.Bytes())
-	}
-
-	// out.set(getBytes(bi), 32 * (ell - 1))
-	out.Write(bi)
-	return out.Bytes(), nil
 }
 
 func zeroPadBytes(m []byte, outlen int) []byte {
