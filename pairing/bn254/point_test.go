@@ -44,13 +44,13 @@ func TestPointG1_HashToPoint(t *testing.T) {
 }
 
 func TestExpandMsg(t *testing.T) {
-	_msg, err := hex.DecodeString("cd91b51a7278becadf9b0c673dad805a0e36dfaf9bc86bc0a22303c69c0133b4")
+	_msg, err := hex.DecodeString("361d32c5249fd47d7e59572679947e2dc5d22bd9583e0c1a6b2cefe3b268693a")
 	if err != nil {
 		t.Error("decode errored", err.Error())
 	}
 
 	expanded := expandMsgXmd(
-		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S"), // NB: trimmed down to 32B
+		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
 		_msg,
 		96,
 	)
@@ -58,27 +58,27 @@ func TestExpandMsg(t *testing.T) {
 		t.Error("expandMsg errored", err.Error())
 	}
 
-	if hex.EncodeToString(expanded) != "fdb291d400e5067af2451380c64d973c2064e443427645680ef6826a3c8dde0d51be4a4fbf68db785869e9671525dbbcb17b349e6def2afe8ae92848f625b539c49bde740c170b03ee5ec8801401d69342c175b60746b4df740ba61b71f10688" {
+	if hex.EncodeToString(expanded) != "2a0948190aa9108b487183707b61cebfa3d36e8828908be74d5fa31249a43682fa17310294d698d107ef7075f4e9851b2328c3adc7f4f7ff436fa4d49b55f4d0c22dd5712c17ccc802960d7ee735af4d112b88b8431cdd54bc2632fbf528d077" {
 		t.Error("expandMsg does not match ref", hex.EncodeToString(expanded))
 	}
 }
 
 func TestHashToField(t *testing.T) {
-	_msg, err := hex.DecodeString("b6cd92b293a7e066f947d55a3d3f6ff1d12491b9418a75eb7eda9e0452f8a802")
+	_msg, err := hex.DecodeString("4b8f1f92e7066e6dea674a437b6a7006fad19f6a9be9c12d1afffd1db7cc0434")
 	if err != nil {
 		t.Error("decode errored", err.Error())
 	}
 
 	x, y := hashToField(
-		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S"), // NB: trimmed down to 32B
+		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
 		_msg,
 	)
 
-	xRef, success := new(big.Int).SetString("21388573764901551231292644833553850174866019666418231876069068938683826780505", 10)
+	xRef, success := new(big.Int).SetString("8300809460411225335268627992541142240972140208092250782524026440341788080112", 10)
 	if !success {
 		t.Error("bigint encode errored")
 	}
-	yRef, success := new(big.Int).SetString("19256864419500893614579951126008683517059415729946874015264273858774622719340", 10)
+	yRef, success := new(big.Int).SetString("44175735727306869917170947589260883655583850346811402035392774550999050340", 10)
 	if !success {
 		t.Error("bigint encode errored")
 	}
@@ -113,7 +113,6 @@ func TestMapToPoint(t *testing.T) {
 		t.Error("mapToPoint y0 does not match ref")
 	}
 
-	// mapToPoint(13567046582215973078286025628916924640601491609066934790276475834177075134736) = 21270216163628842882814619483593789921811876624196591135308046587924997960699,77904935200384384081484811809083200449146358086876400084076386002655699523
 	u1, success := new(big.Int).SetString("13567046582215973078286025628916924640601491609066934790276475834177075134736", 10)
 	if !success {
 		t.Error("bigint encode errored")
@@ -137,8 +136,8 @@ func TestMapToPoint(t *testing.T) {
 }
 
 func TestHashToPoint(t *testing.T) {
-	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_S") // NB: trimmed down to 32B
-	_msg, err := hex.DecodeString("5cd9c040c49a38737a2fd64a7b3f60fc3ba28d2c7ae6ffe706d2553a22a47da8")
+	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
+	_msg, err := hex.DecodeString("d3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84")
 	if err != nil {
 		t.Error("decode errored", err.Error())
 	}
@@ -148,10 +147,10 @@ func TestHashToPoint(t *testing.T) {
 	montDecode(x, &p.g.x)
 	montDecode(y, &p.g.y)
 
-	if x.String() != "1b870d01927740dd824783ff8579ad2f5ee3972b956376b39e2e2b46623d2708" {
+	if x.String() != "298a790a58f3f0595879f168f410acd0c78537f5879ad087a24f3d3797f10d31" {
 		t.Error("hashToPoint x does not match ref")
 	}
-	if y.String() != "1d14281085785309216bd78d3e22f8e344612c2fca31cb8695da67e81efb7925" {
+	if y.String() != "06b050da817646da43652026853a749b7b43358be273d9037505dfc17fb51090" {
 		t.Error("hashToPoint y does not match ref")
 	}
 }
