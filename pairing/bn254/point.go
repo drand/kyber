@@ -323,26 +323,26 @@ func expandMsgXmd(domain, msg []byte, outlen int) []byte {
 	DST_prime := bytes.NewBuffer(make([]byte, 0, len(domain)+1))
 	DST_prime.Write(domain)
 	DST_prime.WriteByte(byte(len(domain)))
-	// ba_input <- keccak( Z_pad<r_in_bytes>|msg<var>|l_i_b_str<2>|0<1>|DST_prime<var> )
-	ba_input := bytes.NewBuffer(make([]byte, r_in_bytes, r_in_bytes+len(msg)+2+1+DST_prime.Len()))
+	// msg_prime <- Z_pad<r_in_bytes>|msg<var>|l_i_b_str<2>|0<1>|DST_prime<var>
+	msg_prime_input := bytes.NewBuffer(make([]byte, r_in_bytes, r_in_bytes+len(msg)+2+1+DST_prime.Len()))
 	// write msg to offset at r_in_bytes
-	ba_input.Write(msg)
-	ba_input.WriteByte(byte((outlen >> 8) & 0xff)) // l_i_b_str
-	ba_input.WriteByte(byte(outlen & 0xff))        // l_i_b_str
-	ba_input.WriteByte(0)
-	ba_input.Write(DST_prime.Bytes()) // DST_prime
-	ba := new(big.Int).SetBytes(keccak256(ba_input.Bytes()))
+	msg_prime_input.Write(msg)
+	msg_prime_input.WriteByte(byte((outlen >> 8) & 0xff)) // l_i_b_str
+	msg_prime_input.WriteByte(byte(outlen & 0xff))        // l_i_b_str
+	msg_prime_input.WriteByte(0)
+	msg_prime_input.Write(DST_prime.Bytes())
+	msg_prime := new(big.Int).SetBytes(keccak256(msg_prime_input.Bytes()))
 
-	b := make([]*big.Int, ell+1)
+	b := make([]*big.Int, ell)
 
 	b0_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
-	b0_input.Write(ba.Bytes())
+	b0_input.Write(msg_prime.Bytes())
 	b0_input.WriteByte(1)
 	b0_input.Write(DST_prime.Bytes())
 	b[0] = new(big.Int).SetBytes(keccak256(b0_input.Bytes()))
-	for i := 1; i <= ell; i++ {
+	for i := 1; i < ell; i++ {
 		bi_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
-		bi_input.Write(new(big.Int).Set(ba).Xor(ba, b[i-1]).Bytes())
+		bi_input.Write(new(big.Int).Set(msg_prime).Xor(msg_prime, b[i-1]).Bytes())
 		bi_input.WriteByte(byte(i + 1))
 		bi_input.Write(DST_prime.Bytes())
 		b[i] = new(big.Int).SetBytes(keccak256(bi_input.Bytes()))
