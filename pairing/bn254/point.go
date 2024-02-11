@@ -342,7 +342,7 @@ func expandMsgXmd(domain, msg []byte, outlen int) []byte {
 	b[0] = new(big.Int).SetBytes(keccak256(b0_input.Bytes()))
 	for i := 1; i < ell; i++ {
 		bi_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
-		bi_input.Write(new(big.Int).Set(msg_prime).Xor(msg_prime, b[i-1]).Bytes())
+		bi_input.Write(zeroPadBytes(new(big.Int).Set(msg_prime).Xor(msg_prime, b[i-1]).Bytes(), 32))
 		bi_input.WriteByte(byte(i + 1))
 		bi_input.Write(DST_prime.Bytes())
 		b[i] = new(big.Int).SetBytes(keccak256(bi_input.Bytes()))
