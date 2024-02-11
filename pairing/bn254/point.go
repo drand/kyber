@@ -350,7 +350,7 @@ func expandMsgXmd(domain, msg []byte, outlen int) []byte {
 
 	pseudo_random_bytes := bytes.NewBuffer(make([]byte, 0, outlen))
 	for i := 0; i < outlen/32; i++ {
-		pseudo_random_bytes.Write(b[i].Bytes())
+		pseudo_random_bytes.Write(zeroPadBytes(b[i].Bytes(), 32))
 	}
 	return pseudo_random_bytes.Bytes()
 }
