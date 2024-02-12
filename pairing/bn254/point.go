@@ -223,7 +223,7 @@ func hashToPoint(domain, m []byte) kyber.Point {
 
 func hashToField(domain, m []byte) (*big.Int, *big.Int) {
 	const u = 48
-	_msg := expandMsgXmd(domain, m, 2*u) // TODO: Handle err/panic
+	_msg := expandMsgXmd(domain, m, 2*u)
 	x := new(big.Int)
 	y := new(big.Int)
 	x.SetBytes(_msg[0:48]).Mod(x, p)

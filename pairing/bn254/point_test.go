@@ -147,6 +147,10 @@ func TestHashToPoint(t *testing.T) {
 	montDecode(x, &p.g.x)
 	montDecode(y, &p.g.y)
 
+	// Reference values are taken from:
+	// https://github.com/kevincharm/bls-bn254/blob/bef9dad5d99b3c99a17fd85e3328daea5824dac9/scripts/hash.ts
+	// Clone the repo, run `yarn` to install deps, then run:
+	// yarn bls:hash 0xd3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84
 	if x.String() != "298a790a58f3f0595879f168f410acd0c78537f5879ad087a24f3d3797f10d31" {
 		t.Error("hashToPoint x does not match ref")
 	}
