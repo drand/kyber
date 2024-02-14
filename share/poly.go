@@ -387,6 +387,11 @@ func (p *PubPoly) Equal(q *PubPoly) bool {
 		return false
 	}
 	b := 1
+
+	if len(p.commits) < p.Threshold() || len(q.commits) < p.Threshold() {
+		return false
+	}
+
 	for i := 0; i < p.Threshold(); i++ {
 		pb, _ := p.commits[i].MarshalBinary()
 		qb, _ := q.commits[i].MarshalBinary()
