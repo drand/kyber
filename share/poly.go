@@ -388,7 +388,7 @@ func (p *PubPoly) Equal(q *PubPoly) bool {
 	}
 	b := 1
 
-	if len(p.commits) < p.Threshold() || len(q.commits) < p.Threshold() {
+	if len(p.commits) < p.Threshold() || len(q.commits) < p.Threshold() || p.Threshold() != q.Threshold() {
 		return false
 	}
 
