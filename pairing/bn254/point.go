@@ -252,7 +252,7 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 
 	a0 := mulmodp(x, x)
 	a0 = addmodp(a0, new(big.Int).SetUint64(4))
-	a1 := mulmodp(x, Z0)
+	a1 := mulmodp(x, z0)
 	a2 := mulmodp(a1, a0)
 	a2 = a2.ModInverse(a2, p)
 	a1 = mulmodp(a1, a1)
@@ -260,7 +260,7 @@ func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
 
 	// x1
 	a1 = mulmodp(x, a1)
-	x = addmodp(Z1, new(big.Int).Sub(p, a1))
+	x = addmodp(z1, new(big.Int).Sub(p, a1))
 	// check curve
 	a1 = mulmodp(x, x)
 	a1 = mulmodp(a1, x)
