@@ -2,6 +2,7 @@ package bn254
 
 import (
 	"crypto/cipher"
+	"encoding/hex"
 
 	"github.com/drand/kyber"
 	"github.com/drand/kyber/group/mod"
@@ -14,7 +15,8 @@ type groupG1 struct {
 }
 
 func (g *groupG1) String() string {
-	return "bn254.G1"
+	b, _ := g.Point().MarshalBinary()
+	return "bn254.G1: " + hex.EncodeToString(b)
 }
 
 func (g *groupG1) PointLen() int {
@@ -32,7 +34,8 @@ type groupG2 struct {
 }
 
 func (g *groupG2) String() string {
-	return "bn254.G2"
+	b, _ := g.Point().MarshalBinary()
+	return "bn254.G2: " + hex.EncodeToString(b)
 }
 
 func (g *groupG2) PointLen() int {
@@ -49,7 +52,8 @@ type groupGT struct {
 }
 
 func (g *groupGT) String() string {
-	return "bn254.GT"
+	b, _ := g.Point().MarshalBinary()
+	return "bn254.GT: " + hex.EncodeToString(b)
 }
 
 func (g *groupGT) PointLen() int {
