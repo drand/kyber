@@ -97,6 +97,9 @@ func TestG1Ops(t *testing.T) {
 	suite := NewSuite()
 	a := suite.G1().Point().Pick(random.New())
 	b := suite.G1().Point().Pick(random.New())
+	if a.Equal(b) {
+		t.Fatal("bn254.G1: generated 2 equivalent random points")
+	}
 	c := a.Clone()
 	a.Neg(a)
 	a.Neg(a)
