@@ -1,4 +1,4 @@
-package bls12381
+package circl_bls12381
 
 import (
 	"github.com/drand/kyber"

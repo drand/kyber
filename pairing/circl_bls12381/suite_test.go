@@ -1,4 +1,4 @@
-package bls12381_test
+package circl_bls12381_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/drand/kyber"
-	this "github.com/drand/kyber/pairing/bls12381"
+	this "github.com/drand/kyber/pairing/circl_bls12381"
 	"github.com/drand/kyber/sign/bls"
 	"github.com/drand/kyber/sign/tbls"
 	"github.com/drand/kyber/sign/test"

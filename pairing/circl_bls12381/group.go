@@ -1,4 +1,4 @@
-package bls12381
+package circl_bls12381
 
 import (
 	circl "github.com/cloudflare/circl/ecc/bls12381"
