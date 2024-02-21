@@ -379,7 +379,7 @@ func (p *PubPoly) Add(q *PubPoly) (*PubPoly, error) {
 }
 
 // Equal checks equality of two public commitment polynomials p and q. If p and
-// q are trivially unequal (e.g., due to mismatching cryptographic groups),
+// q are trivially unequal (e.g., due to mismatching cryptographic groups, or threshold issues),
 // this routine returns in variable time. Otherwise it runs in constant time
 // regardless of whether it eventually returns true or false.
 func (p *PubPoly) Equal(q *PubPoly) bool {
