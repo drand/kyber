@@ -18,35 +18,6 @@ This package previously claimed to operate at a 128-bit security level. However,
 recent improvements in attacks mean that is no longer true. See
 https://moderncrypto.org/mail-archive/curves/2016/000740.html.
 
-### Benchmarks
-
-branch `master`:
-
-```
-BenchmarkG1-4        	   10000	    154995 ns/op
-BenchmarkG2-4        	    3000	    541503 ns/op
-BenchmarkGT-4        	    1000	   1267811 ns/op
-BenchmarkPairing-4   	    1000	   1630584 ns/op
-```
-
-branch `lattices`:
-
-```
-BenchmarkG1-4        	   20000	     92198 ns/op
-BenchmarkG2-4        	    5000	    340622 ns/op
-BenchmarkGT-4        	    2000	    635061 ns/op
-BenchmarkPairing-4   	    1000	   1629943 ns/op
-```
-
-official version:
-
-```
-BenchmarkG1-4        	    1000	   2268491 ns/op
-BenchmarkG2-4        	     300	   7227637 ns/op
-BenchmarkGT-4        	     100	  15121359 ns/op
-BenchmarkPairing-4   	      50	  20296164 ns/op
-```
-
 ## Kyber additions
 
 The basis for this package is [Cloudflare's bn256 implementation](https://github.com/cloudflare/bn256)
