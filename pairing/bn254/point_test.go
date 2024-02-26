@@ -62,33 +62,24 @@ func TestExpandMsg(t *testing.T) {
 	}
 }
 
-// func TestHashToField(t *testing.T) {
-// 	_msg, err := hex.DecodeString("4b8f1f92e7066e6dea674a437b6a7006fad19f6a9be9c12d1afffd1db7cc0434")
-// 	if err != nil {
-// 		t.Error("decode errored", err.Error())
-// 	}
+func TestHashToField(t *testing.T) {
+	_msg, err := hex.DecodeString("19c2146fe74be3bec967fc4bea0bd1c95b414631d505c54c06d194c2141f5073")
+	if err != nil {
+		t.Error("decode errored", err.Error())
+	}
 
-// 	x, y := hashToField(
-// 		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
-// 		_msg,
-// 	)
+	x, y := hashToField(
+		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
+		_msg,
+	)
 
-// 	xRef, success := new(big.Int).SetString("8300809460411225335268627992541142240972140208092250782524026440341788080112", 10)
-// 	if !success {
-// 		t.Error("bigint encode errored")
-// 	}
-// 	yRef, success := new(big.Int).SetString("44175735727306869917170947589260883655583850346811402035392774550999050340", 10)
-// 	if !success {
-// 		t.Error("bigint encode errored")
-// 	}
-
-// 	if x.Equal(xRef) != 0 {
-// 		t.Error("hashToField x does not match ref", x, xRef)
-// 	}
-// 	if y.Cmp(yRef) != 0 {
-// 		t.Error("hashToField y does not match ref", y, yRef)
-// 	}
-// }
+	if x.String() != "0edb1e4dd8b720eb2752ee0df3289a82c00567d6f862f4212e700c85b8e28087" {
+		t.Error("hashToField x does not match ref", x)
+	}
+	if y.String() != "2cfcfdb53a812bac1c030b4074ca56ec6fc478689cdbc5c657e7b332f50e02bc" {
+		t.Error("hashToField y does not match ref", y)
+	}
+}
 
 func TestMapToPoint(t *testing.T) {
 	dst := []byte("BN254G1_XMD:KECCAK-256_SVDW_RO_NUL_")

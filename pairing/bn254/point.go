@@ -231,7 +231,7 @@ func hashToField(domain, m []byte) (*gfP, *gfP) {
 	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
 	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
 	montEncode(gx, gx)
-	montEncode(gx, gy)
+	montEncode(gy, gy)
 	return gx, gy
 }
 
