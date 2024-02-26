@@ -21,6 +21,15 @@ var curveGen = &curvePoint{
 	t: *newGFp(1),
 }
 
+// evaluate the curve at x
+func g(x *gfP) *gfP {
+	y := &gfP{}
+	gfpMul(y, x, x)
+	gfpMul(y, y, x)
+	gfpAdd(y, y, newGFp(3))
+	return y
+}
+
 func (c *curvePoint) String() string {
 	cpy := c.Clone()
 	cpy.MakeAffine()

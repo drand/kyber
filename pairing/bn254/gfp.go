@@ -3,6 +3,7 @@ package bn254
 import (
 	"errors"
 	"fmt"
+	"math/big"
 )
 
 type gfP [4]uint64
@@ -19,8 +20,20 @@ func newGFp(x int64) (out *gfP) {
 	return out
 }
 
+func newGFpFromBase10(x string) *gfP {
+	bx, _ := new(big.Int).SetString(x, 10)
+	bx = bx.Mod(bx, p)
+	out := &gfP{}
+	out.Unmarshal(zeroPadBytes(bx.Bytes(), 32))
+	montEncode(out, out)
+	return out
+}
+
 func (e *gfP) String() string {
-	return fmt.Sprintf("%16.16x%16.16x%16.16x%16.16x", e[3], e[2], e[1], e[0])
+	c := &gfP{}
+	c.Set(e)
+	montDecode(c, c)
+	return fmt.Sprintf("%16.16x%16.16x%16.16x%16.16x", c[3], c[2], c[1], c[0])
 }
 
 func (e *gfP) Set(f *gfP) {
@@ -48,6 +61,30 @@ func (e *gfP) Invert(f *gfP) {
 
 	gfpMul(sum, sum, r3)
 	e.Set(sum)
+}
+
+func (e *gfP) Exp(f *gfP, bits [4]uint64) {
+	sum, power := &gfP{}, &gfP{}
+	sum.Set(rN1)
+	power.Set(f)
+
+	for word := 0; word < 4; word++ {
+		for bit := uint(0); bit < 64; bit++ {
+			if (bits[word]>>bit)&1 == 1 {
+				gfpMul(sum, sum, power)
+			}
+			gfpMul(power, power, power)
+		}
+	}
+
+	gfpMul(sum, sum, r3)
+	e.Set(sum)
+}
+
+func (e *gfP) Sqrt(f *gfP) {
+	// Since p = 4k+3, then e = f^(k+1) is a root of f.
+	var pPlus1Over4 = [4]uint64{0x4f082305b61f3f52, 0x65e05aa45a1c72a3, 0x6e14116da0605617, 0xc19139cb84c680a}
+	e.Exp(f, pPlus1Over4)
 }
 
 func (e *gfP) Marshal(out []byte) {
@@ -80,3 +117,25 @@ func (e *gfP) Unmarshal(in []byte) error {
 
 func montEncode(c, a *gfP) { gfpMul(c, a, r2) }
 func montDecode(c, a *gfP) { gfpMul(c, a, &gfP{1}) }
+
+// https://datatracker.ietf.org/doc/html/rfc9380/#name-the-sgn0-function
+func sgn0(e *gfP) int {
+	x := &gfP{}
+	montDecode(x, e)
+	return int(x[0] & 1)
+}
+
+// Borrowed from: https://github.com/cloudflare/bn256/blob/master/gfp.go#L123
+func legendre(e *gfP) int {
+	f := &gfP{}
+	// Since p = 4k+3, then e^(2k+1) is the Legendre symbol of e.
+	f.Exp(e, pMinus1Over2)
+
+	montDecode(f, f)
+
+	if *f != [4]uint64{} {
+		return 2*int(f[0]&1) - 1
+	}
+
+	return 0
+}

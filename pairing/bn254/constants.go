@@ -57,8 +57,16 @@ var xiToPSquaredMinus1Over6 = &gfP{0xca8d800500fa1bf2, 0xf0c5d61468b39769, 0x0e2
 // xiTo2PMinus2Over3 is ξ^((2p-2)/3) where ξ = i+9.
 var xiTo2PMinus2Over3 = &gfP2{gfP{0x5dddfd154bd8c949, 0x62cb29a5a4445b60, 0x37bc870a0c7dd2b9, 0x24830a9d3171f0fd}, gfP{0x7361d77f843abe92, 0xa5bb2bd3273411fb, 0x9c941f314b3e2399, 0x15df9cddbb9fd3ec}}
 
-// sqrt(-3)
-var z0 = bigFromBase10("4407920970296243842837207485651524041948558517760411303933")
+// g(Z)
+var c1 = &gfP{0x115482203dbf392d, 0x926242126eaa626a, 0xe16a48076063c052, 0x07c5909386eddc93}
 
-// (sqrt(-3) - 1)  / 2
-var z1 = bigFromBase10("2203960485148121921418603742825762020974279258880205651966")
+// -Z / 2
+var c2 = &gfP{0xb461a4448976f7d5, 0xc6843fb439555fa7, 0x28f0d12384840918, 0x112ceb58a394e07d}
+
+// sqrt(-g(Z) * (3 * Z^2 + 4 * A))
+var c3 = &gfP{0x7c8487078735ab72, 0x51da7e0048bfb8d4, 0x945cfd183cbd7bf4, 0x0b70b1ec48ae62c6}
+
+// 4 * -g(Z) / (3 * Z^2 + 4 * A)
+var c4 = &gfP{0xa79a2bdca0800831, 0x19fd7617e49815a1, 0xbb8d0c885550c7b1, 0x05c4aeb6ec7e0f48}
+
+var pMinus1Over2 = [4]uint64{0x9e10460b6c3e7ea3, 0xcbc0b548b438e546, 0xdc2822db40c0ac2e, 0x183227397098d014}

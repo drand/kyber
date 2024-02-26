@@ -215,96 +215,77 @@ func (p *pointG1) Hash(m []byte) kyber.Point {
 
 func hashToPoint(domain, m []byte) kyber.Point {
 	e0, e1 := hashToField(domain, m)
-	p0 := newPointG1(domain).fromBigInt(mapToPoint(e0))
-	p1 := newPointG1(domain).fromBigInt(mapToPoint(e1))
+	p0 := mapToPoint(domain, e0)
+	p1 := mapToPoint(domain, e1)
 	p := p0.Add(p0, p1)
 	return p
 }
 
-func hashToField(domain, m []byte) (*big.Int, *big.Int) {
+func hashToField(domain, m []byte) (*gfP, *gfP) {
 	const u = 48
 	_msg := expandMsgXmd(domain, m, 2*u)
-	x := new(big.Int)
-	y := new(big.Int)
+	x, y := new(big.Int), new(big.Int)
 	x.SetBytes(_msg[0:48]).Mod(x, p)
 	y.SetBytes(_msg[48:96]).Mod(y, p)
-	return x, y
+	gx, gy := &gfP{}, &gfP{}
+	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
+	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
+	montEncode(gx, gx)
+	montEncode(gx, gy)
+	return gx, gy
 }
 
-// `mapToPoint` implements a specialised SW mapping for BN curves from the paper
-//
-//	 Fouque, P.-A. and M. Tibouchi, "Indifferentiable Hashing to Barreto--Naehrig Curves",
-//		In Progress in Cryptology -
-//		LATINCRYPT 2012, pages 1-17,
-//		DOI 10.1007/978-3-642-33481-8_1, 2012,
-//		<https://doi.org/10.1007/978-3-642-33481-8_1>.
-//
-// Ref implementations:
-//
-//	https://github.com/herumi/mcl/blob/5f4449efd08388009f9abce06c44fc26730193e7/include/mcl/bn.hpp#L343
-//	https://github.com/thehubbleproject/hubble-contracts/blob/f1c13fe4e1a0dc9ab1f150895de7c0e654ee46b0/contracts/libs/BLS.sol#L139
-func mapToPoint(x *big.Int) (*big.Int, *big.Int) {
-	if x.Cmp(p) >= 0 {
-		panic("mapToPointFT: invalid field element")
+// `mapToPoint` implements the general Shallue-van de Woestijne mapping to BN254 G1
+// RFC9380, 6.6.1. https://datatracker.ietf.org/doc/html/rfc9380#name-shallue-van-de-woestijne-me
+func mapToPoint(domain []byte, u *gfP) kyber.Point {
+	tv1 := &gfP{}
+	tv1.Set(u)
+	gfpMul(tv1, tv1, tv1)
+	gfpMul(tv1, tv1, c1)
+	tv2 := &gfP{}
+	gfpAdd(tv2, newGFp(1), tv1)
+	negTv1 := &gfP{}
+	gfpNeg(negTv1, tv1)
+	gfpAdd(tv1, newGFp(1), negTv1)
+	tv3 := &gfP{}
+	gfpMul(tv3, tv1, tv2)
+	tv3.Invert(tv3)
+	tv5 := &gfP{}
+	gfpMul(tv5, u, tv1)
+	gfpMul(tv5, tv5, tv3)
+	gfpMul(tv5, tv5, c3)
+	x1 := &gfP{}
+	gfpSub(x1, c2, tv5)
+	x2 := &gfP{}
+	gfpAdd(x2, c2, tv5)
+	tv7 := &gfP{}
+	gfpMul(tv7, tv2, tv2)
+	tv8 := &gfP{}
+	gfpMul(tv8, tv7, tv3)
+	x3 := &gfP{}
+	gfpMul(x3, tv8, tv8)
+	gfpMul(x3, c4, x3)
+	gfpAdd(x3, newGFp(1), x3)
+
+	x, y := &gfP{}, &gfP{}
+	if legendre(g(x1)) == 1 {
+		x = x1
+		y.Sqrt(g(x1))
+	} else if legendre(g(x2)) == 1 {
+		x = x2
+		y.Sqrt(g(x2))
+	} else {
+		x = x3
+		y.Sqrt(g(x3))
+	}
+	if sgn0(u) != sgn0(y) {
+		gfpNeg(y, y)
 	}
 
-	_, decision := modsqrt(x)
-
-	a0 := mulmodp(x, x)
-	a0 = addmodp(a0, new(big.Int).SetUint64(4))
-	a1 := mulmodp(x, z0)
-	a2 := mulmodp(a1, a0)
-	a2 = a2.ModInverse(a2, p)
-	a1 = mulmodp(a1, a1)
-	a1 = mulmodp(a1, a2)
-
-	// x1
-	a1 = mulmodp(x, a1)
-	x = addmodp(z1, new(big.Int).Sub(p, a1))
-	// check curve
-	a1 = mulmodp(x, x)
-	a1 = mulmodp(a1, x)
-	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	a1, found := modsqrt(a1)
-	if found {
-		if !decision {
-			a1 = new(big.Int).Sub(p, a1)
-		}
-		return x, a1
-	}
-
-	// x2
-	x = new(big.Int).Sub(p, addmodp(x, new(big.Int).SetUint64(1)))
-	// check curve
-	a1 = mulmodp(x, x)
-	a1 = mulmodp(a1, x)
-	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	a1, found = modsqrt(a1)
-	if found {
-		if !decision {
-			a1 = new(big.Int).Sub(p, a1)
-		}
-		return x, a1
-	}
-
-	// x3
-	x = mulmodp(a0, a0)
-	x = mulmodp(x, x)
-	x = mulmodp(x, a2)
-	x = mulmodp(x, a2)
-	x = addmodp(x, new(big.Int).SetUint64(1))
-	// must be on curve
-	a1 = mulmodp(x, x)
-	a1 = mulmodp(a1, x)
-	a1 = addmodp(a1, new(big.Int).SetUint64(3))
-	a1, found = modsqrt(a1)
-	if !found {
-		panic("BLS: bad ft mapping implementation")
-	}
-	if !decision {
-		a1 = new(big.Int).Sub(p, a1)
-	}
-	return x, a1
+	p := newPointG1(domain).Base().(*pointG1)
+	p.g.x.Set(x)
+	p.g.y.Set(y)
+	return p
 }
 
 // `expandMsgXmd` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
@@ -353,33 +334,6 @@ func expandMsgXmd(domain, msg []byte, outlen int) []byte {
 		pseudo_random_bytes.Write(zeroPadBytes(b[i].Bytes(), 32))
 	}
 	return pseudo_random_bytes.Bytes()
-}
-
-func addmodp(a, b *big.Int) *big.Int {
-	result := new(big.Int).Add(a, b)
-	result = result.Mod(result, p)
-	return result
-}
-
-func mulmodp(a, b *big.Int) *big.Int {
-	result := new(big.Int).Mul(a, b)
-	result = result.Mod(result, p)
-	return result
-}
-
-func modsqrt(x *big.Int) (*big.Int, bool) {
-	result := new(big.Int).ModSqrt(x, p)
-	return result, result != nil
-}
-
-func zeroPadBytes(m []byte, outlen int) []byte {
-	if len(m) < outlen {
-		padlen := outlen - len(m)
-		out := bytes.NewBuffer(make([]byte, padlen, outlen))
-		out.Write(m)
-		return out.Bytes()
-	}
-	return m
 }
 
 func keccak256(m []byte) []byte {
