@@ -1,11 +1,9 @@
 package bn254
 
 import (
-	"bytes"
 	"crypto/cipher"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -223,7 +221,7 @@ func hashToPoint(domain, m []byte) kyber.Point {
 
 func hashToField(domain, m []byte) (*gfP, *gfP) {
 	const u = 48
-	_msg := expandMsgXmd(domain, m, 2*u)
+	_msg := expandMsgXmdKeccak256(domain, m, 2*u)
 	x, y := new(big.Int), new(big.Int)
 	x.SetBytes(_msg[0:48]).Mod(x, p)
 	y.SetBytes(_msg[48:96]).Mod(y, p)
@@ -288,59 +286,55 @@ func mapToPoint(domain []byte, u *gfP) kyber.Point {
 	return p
 }
 
-// `expandMsgXmd` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
-// where H is keccak256
-func expandMsgXmd(domain, msg []byte, outlen int) []byte {
-	if len(domain) > 255 {
-		panic(fmt.Sprintf("invalid DST length: %d", len(domain)))
+// `expandMsgXmdKeccak256` implements expand_message_xmd from IETF RFC9380 Sec 5.3.1
+// Borrowed from: https://github.com/kilic/bls12-381/blob/master/hash_to_field.go
+func expandMsgXmdKeccak256(domain, msg []byte, outLen int) []byte {
+	h := sha3.NewLegacyKeccak256()
+	domainLen := uint8(len(domain))
+	if domainLen > 255 {
+		panic("invalid domain length")
 	}
-	b_in_bytes := 32
-	r_in_bytes := b_in_bytes * 2
-	ell := (outlen + b_in_bytes - 1) / b_in_bytes
-	if ell > 255 {
-		panic(fmt.Sprintf("invalid xmd length: %d", ell))
-	}
-	// DST_prime <- domain<len(domain)>|len(domain)<1>
-	DST_prime := bytes.NewBuffer(make([]byte, 0, len(domain)+1))
-	DST_prime.Write(domain)
-	DST_prime.WriteByte(byte(len(domain)))
-	// msg_prime <- Z_pad<r_in_bytes>|msg<var>|l_i_b_str<2>|0<1>|DST_prime<var>
-	msg_prime_input := bytes.NewBuffer(make([]byte, r_in_bytes, r_in_bytes+len(msg)+2+1+DST_prime.Len()))
-	// write msg to offset at r_in_bytes
-	msg_prime_input.Write(msg)
-	msg_prime_input.WriteByte(byte((outlen >> 8) & 0xff)) // l_i_b_str
-	msg_prime_input.WriteByte(byte(outlen & 0xff))        // l_i_b_str
-	msg_prime_input.WriteByte(0)
-	msg_prime_input.Write(DST_prime.Bytes())
-	msg_prime := new(big.Int).SetBytes(keccak256(msg_prime_input.Bytes()))
+	// DST_prime = DST || I2OSP(len(DST), 1)
+	// b_0 = H(Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime)
+	_, _ = h.Write(make([]byte, h.BlockSize()))
+	_, _ = h.Write(msg)
+	_, _ = h.Write([]byte{uint8(outLen >> 8), uint8(outLen)})
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write(domain)
+	_, _ = h.Write([]byte{domainLen})
+	b0 := h.Sum(nil)
 
-	b := make([]*big.Int, ell)
+	// b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
+	h.Reset()
+	_, _ = h.Write(b0)
+	_, _ = h.Write([]byte{1})
+	_, _ = h.Write(domain)
+	_, _ = h.Write([]byte{domainLen})
+	b1 := h.Sum(nil)
 
-	b0_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
-	b0_input.Write(msg_prime.Bytes())
-	b0_input.WriteByte(1)
-	b0_input.Write(DST_prime.Bytes())
-	b[0] = new(big.Int).SetBytes(keccak256(b0_input.Bytes()))
+	// b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
+	ell := (outLen + h.Size() - 1) / h.Size()
+	bi := b1
+	out := make([]byte, outLen)
 	for i := 1; i < ell; i++ {
-		bi_input := bytes.NewBuffer(make([]byte, 0, 32+1+DST_prime.Len()))
-		bi_input.Write(zeroPadBytes(new(big.Int).Set(msg_prime).Xor(msg_prime, b[i-1]).Bytes(), 32))
-		bi_input.WriteByte(byte(i + 1))
-		bi_input.Write(DST_prime.Bytes())
-		b[i] = new(big.Int).SetBytes(keccak256(bi_input.Bytes()))
-	}
+		h.Reset()
+		// b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
+		tmp := make([]byte, h.Size())
+		for j := 0; j < h.Size(); j++ {
+			tmp[j] = b0[j] ^ bi[j]
+		}
+		_, _ = h.Write(tmp)
+		_, _ = h.Write([]byte{1 + uint8(i)})
+		_, _ = h.Write(domain)
+		_, _ = h.Write([]byte{domainLen})
 
-	pseudo_random_bytes := bytes.NewBuffer(make([]byte, 0, outlen))
-	for i := 0; i < outlen/32; i++ {
-		pseudo_random_bytes.Write(zeroPadBytes(b[i].Bytes(), 32))
+		// b_1 || ... || b_(ell - 1)
+		copy(out[(i-1)*h.Size():i*h.Size()], bi[:])
+		bi = h.Sum(nil)
 	}
-	return pseudo_random_bytes.Bytes()
-}
-
-func keccak256(m []byte) []byte {
-	keccak := sha3.NewLegacyKeccak256()
-	keccak.Write(m)
-	h := keccak.Sum(nil)
-	return h
+	// b_ell
+	copy(out[(ell-1)*h.Size():], bi[:])
+	return out[:outLen]
 }
 
 type pointG2 struct {

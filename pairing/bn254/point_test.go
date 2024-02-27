@@ -43,12 +43,12 @@ func TestPointG1_HashToPoint(t *testing.T) {
 }
 
 func TestExpandMsg(t *testing.T) {
-	_msg, err := hex.DecodeString("361d32c5249fd47d7e59572679947e2dc5d22bd9583e0c1a6b2cefe3b268693a")
+	_msg, err := hex.DecodeString("af6c1f30b2f3f2fd448193f90d6fb55b544a")
 	if err != nil {
 		t.Error("decode errored", err.Error())
 	}
 
-	expanded := expandMsgXmd(
+	expanded := expandMsgXmdKeccak256(
 		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
 		_msg,
 		96,
@@ -57,27 +57,30 @@ func TestExpandMsg(t *testing.T) {
 		t.Error("expandMsg errored", err.Error())
 	}
 
-	if hex.EncodeToString(expanded) != "2a0948190aa9108b487183707b61cebfa3d36e8828908be74d5fa31249a43682fa17310294d698d107ef7075f4e9851b2328c3adc7f4f7ff436fa4d49b55f4d0c22dd5712c17ccc802960d7ee735af4d112b88b8431cdd54bc2632fbf528d077" {
+	if hex.EncodeToString(expanded) != "bd365d9672926bbb6887f8c0ce88d1edc0c20bd46f6af54e80c7edc15ac1c5eba9e754994af715195aa8acb3f21febae2b9626bc1b06c185922455908d1c8db3d370fe339995718e344af3add0aa77d3bd48d0d9f3ebe26b88cbb393325c1c6e" {
 		t.Error("expandMsg does not match ref", hex.EncodeToString(expanded))
 	}
 }
 
 func TestHashToField(t *testing.T) {
-	_msg, err := hex.DecodeString("19c2146fe74be3bec967fc4bea0bd1c95b414631d505c54c06d194c2141f5073")
-	if err != nil {
-		t.Error("decode errored", err.Error())
-	}
+	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
+	for i, testVector := range hashToFieldTestVectors {
+		_msg, err := hex.DecodeString(testVector.Msg)
+		if err != nil {
+			t.Error("decode errored", err.Error())
+		}
 
-	x, y := hashToField(
-		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
-		_msg,
-	)
+		x, y := hashToField(
+			dst,
+			_msg,
+		)
 
-	if x.String() != "0edb1e4dd8b720eb2752ee0df3289a82c00567d6f862f4212e700c85b8e28087" {
-		t.Error("hashToField x does not match ref", x)
-	}
-	if y.String() != "2cfcfdb53a812bac1c030b4074ca56ec6fc478689cdbc5c657e7b332f50e02bc" {
-		t.Error("hashToField y does not match ref", y)
+		if x.String() != testVector.RefX {
+			t.Errorf("[%d] hashToField x does not match ref %s != %s", i, x, testVector.RefX)
+		}
+		if y.String() != testVector.RefY {
+			t.Errorf("[%d] hashToField y does not match ref %s != %s", i, y, testVector.RefY)
+		}
 	}
 }
 
@@ -98,26 +101,26 @@ func TestMapToPoint(t *testing.T) {
 	}
 }
 
-// func TestHashToPoint(t *testing.T) {
-// 	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
-// 	_msg, err := hex.DecodeString("d3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84")
-// 	if err != nil {
-// 		t.Error("decode errored", err.Error())
-// 	}
-// 	p := hashToPoint(dst, _msg).(*pointG1)
-// 	p.g.MakeAffine()
-// 	x, y := &gfP{}, &gfP{}
-// 	montDecode(x, &p.g.x)
-// 	montDecode(y, &p.g.y)
+func TestHashToPoint(t *testing.T) {
+	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
+	_msg, err := hex.DecodeString("d3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84")
+	if err != nil {
+		t.Error("decode errored", err.Error())
+	}
+	p := hashToPoint(dst, _msg).(*pointG1)
+	p.g.MakeAffine()
+	x, y := &gfP{}, &gfP{}
+	montDecode(x, &p.g.x)
+	montDecode(y, &p.g.y)
 
-// 	// Reference values are taken from:
-// 	// https://github.com/kevincharm/bls-bn254/blob/bef9dad5d99b3c99a17fd85e3328daea5824dac9/scripts/hash.ts
-// 	// Clone the repo, run `yarn` to install deps, then run:
-// 	// yarn bls:hash 0xd3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84
-// 	if x.String() != "298a790a58f3f0595879f168f410acd0c78537f5879ad087a24f3d3797f10d31" {
-// 		t.Error("hashToPoint x does not match ref")
-// 	}
-// 	if y.String() != "06b050da817646da43652026853a749b7b43358be273d9037505dfc17fb51090" {
-// 		t.Error("hashToPoint y does not match ref")
-// 	}
-// }
+	// Reference values are taken from:
+	// https://github.com/kevincharm/bls-bn254/blob/bef9dad5d99b3c99a17fd85e3328daea5824dac9/scripts/hash.ts
+	// Clone the repo, run `yarn` to install deps, then run:
+	// yarn bls:hash 0xd3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84
+	if x.String() != "298a790a58f3f0595879f168f410acd0c78537f5879ad087a24f3d3797f10d31" {
+		t.Error("hashToPoint x does not match ref")
+	}
+	if y.String() != "06b050da817646da43652026853a749b7b43358be273d9037505dfc17fb51090" {
+		t.Error("hashToPoint y does not match ref")
+	}
+}
