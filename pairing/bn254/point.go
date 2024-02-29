@@ -26,17 +26,6 @@ func newPointG1(dst []byte) *pointG1 {
 	return p
 }
 
-func (p *pointG1) fromBigInt(x, y *big.Int) *pointG1 {
-	gx, gy := new(gfP), new(gfP)
-	gx.Unmarshal(zeroPadBytes(x.Bytes(), 32))
-	gy.Unmarshal(zeroPadBytes(y.Bytes(), 32))
-	montEncode(gx, gx)
-	montEncode(gy, gy)
-
-	p.g.Set(&curvePoint{*gx, *gy, *newGFp(1), *newGFp(1)})
-	return p
-}
-
 func (p *pointG1) Equal(q kyber.Point) bool {
 	x, _ := p.MarshalBinary()
 	y, _ := q.MarshalBinary()
