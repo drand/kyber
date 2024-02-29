@@ -10,12 +10,12 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	domain := []byte("domain_separation_tag_test_12345")
 
 	// reference test 1
-	p := newPointG1(domain).Hash([]byte("abc"))
+	p := newPointG1(domain).Hash([]byte("The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"))
 	pBuf, err := p.MarshalBinary()
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf, err := hex.DecodeString("1162012021d4e0f95f3d1581abb47965f00fbe4d687c2862d96c6bcd1d1b8c2802edb2671f058e94c55bf159f3b77c66861f48e92eadaaf490bd40298bc7250d")
+	refBuf, err := hex.DecodeString("13af4ace8febc1ec800f7d33d66868310516bce9cb1b7f7c68607f9ba6dba92c1823b8f13feeb8dad6b152eb2bbefbe59452f9519c88230b55d0b699498db6f1")
 	if err != nil {
 		t.Error(err)
 	}
@@ -33,7 +33,7 @@ func TestPointG1_HashToPoint(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	refBuf2, err := hex.DecodeString("0663a666beede006480859f65d7057e783e0d7b3bc31ac05350c97358a92170909963f538b0c0d8d55fcd77bb1cf718837cb1cc69c41a2a7531fc278ac8d2cc4")
+	refBuf2, err := hex.DecodeString("07abd743dc93dfa3a8ee4ab449b1657dc6232c589612b23a54ea461c7232101e2533badbee56e8457731fc35bb7630236623e4614e4f8acb4a0c3282df58a289")
 	if err != nil {
 		t.Error(err)
 	}
