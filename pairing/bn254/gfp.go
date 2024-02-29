@@ -63,6 +63,7 @@ func (e *gfP) Invert(f *gfP) {
 	e.Set(sum)
 }
 
+// Borrowed from: https://github.com/cloudflare/bn256/blob/master/gfp.go#L63
 func (e *gfP) Exp(f *gfP, bits [4]uint64) {
 	sum, power := &gfP{}, &gfP{}
 	sum.Set(rN1)
@@ -81,9 +82,9 @@ func (e *gfP) Exp(f *gfP, bits [4]uint64) {
 	e.Set(sum)
 }
 
+// Borrowed from: https://github.com/cloudflare/bn256/blob/master/gfp.go#L85
 func (e *gfP) Sqrt(f *gfP) {
 	// Since p = 4k+3, then e = f^(k+1) is a root of f.
-	var pPlus1Over4 = [4]uint64{0x4f082305b61f3f52, 0x65e05aa45a1c72a3, 0x6e14116da0605617, 0xc19139cb84c680a}
 	e.Exp(f, pPlus1Over4)
 }
 
