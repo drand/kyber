@@ -3,7 +3,10 @@ package bn254
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"testing"
+
+	"golang.org/x/crypto/sha3"
 )
 
 func TestPointG1_HashToPoint(t *testing.T) {
@@ -43,22 +46,33 @@ func TestPointG1_HashToPoint(t *testing.T) {
 }
 
 func TestExpandMsg(t *testing.T) {
-	_msg, err := hex.DecodeString("af6c1f30b2f3f2fd448193f90d6fb55b544a")
+	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
+	msg, err := hex.DecodeString("af6c1f30b2f3f2fd448193f90d6fb55b544a")
 	if err != nil {
 		t.Error("decode errored", err.Error())
 	}
 
 	expanded := expandMsgXmdKeccak256(
-		[]byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_"),
-		_msg,
+		dst,
+		msg,
 		96,
 	)
 	if err != nil {
-		t.Error("expandMsg errored", err.Error())
+		t.Error("expandMsgXmdKeccak256 errored", err.Error())
 	}
 
+	// Output from Solidity & ts implementation in bls-bn254
 	if hex.EncodeToString(expanded) != "bd365d9672926bbb6887f8c0ce88d1edc0c20bd46f6af54e80c7edc15ac1c5eba9e754994af715195aa8acb3f21febae2b9626bc1b06c185922455908d1c8db3d370fe339995718e344af3add0aa77d3bd48d0d9f3ebe26b88cbb393325c1c6e" {
-		t.Error("expandMsg does not match ref", hex.EncodeToString(expanded))
+		t.Error("expandMsgXmdKeccak256 does not match ref", hex.EncodeToString(expanded))
+	}
+
+	// Sanity check against gnark's implementation
+	gnarkExpanded, err := gnarkExpandMsgXmd(msg, dst, 96)
+	if err != nil {
+		t.Error("gnarkExpandMsgXmd errored", err.Error())
+	}
+	if hex.EncodeToString(expanded) != hex.EncodeToString(gnarkExpanded) {
+		t.Error("expandMsgXmdKeccak256 did not match gnark implementation")
 	}
 }
 
@@ -99,4 +113,96 @@ func TestMapToPoint(t *testing.T) {
 			t.Errorf("[%d] point does not match ref (%s != %s)", i, p.String(), pRef.String())
 		}
 	}
+}
+
+// Borrowed from: https://github.com/Consensys/gnark-crypto/blob/18aa16f0fde4c13d8a7d3806bf13d70b6b5d4cb6/field/hash/hashutils.go
+// The first line instantiating the hashing function has been changed from sha256 to keccak256.
+// This is here to sanity check against our actual implementation.
+//
+// ExpandMsgXmd expands msg to a slice of lenInBytes bytes.
+// https://datatracker.ietf.org/doc/html/rfc9380#name-expand_message_xmd
+// https://datatracker.ietf.org/doc/html/rfc9380#name-utility-functions (I2OSP/O2ISP)
+func gnarkExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
+
+	h := sha3.NewLegacyKeccak256()
+	ell := (lenInBytes + h.Size() - 1) / h.Size() // ceil(len_in_bytes / b_in_bytes)
+	if ell > 255 {
+		return nil, errors.New("invalid lenInBytes")
+	}
+	if len(dst) > 255 {
+		return nil, errors.New("invalid domain size (>255 bytes)")
+	}
+	sizeDomain := uint8(len(dst))
+
+	// Z_pad = I2OSP(0, r_in_bytes)
+	// l_i_b_str = I2OSP(len_in_bytes, 2)
+	// DST_prime = DST ∥ I2OSP(len(DST), 1)
+	// b₀ = H(Z_pad ∥ msg ∥ l_i_b_str ∥ I2OSP(0, 1) ∥ DST_prime)
+	h.Reset()
+	if _, err := h.Write(make([]byte, h.BlockSize())); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(msg); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{uint8(lenInBytes >> 8), uint8(lenInBytes), uint8(0)}); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(dst); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{sizeDomain}); err != nil {
+		return nil, err
+	}
+	b0 := h.Sum(nil)
+
+	// b₁ = H(b₀ ∥ I2OSP(1, 1) ∥ DST_prime)
+	h.Reset()
+	if _, err := h.Write(b0); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{uint8(1)}); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(dst); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{sizeDomain}); err != nil {
+		return nil, err
+	}
+	b1 := h.Sum(nil)
+
+	res := make([]byte, lenInBytes)
+	copy(res[:h.Size()], b1)
+
+	for i := 2; i <= ell; i++ {
+		// b_i = H(strxor(b₀, b_(i - 1)) ∥ I2OSP(i, 1) ∥ DST_prime)
+		h.Reset()
+		strxor := make([]byte, h.Size())
+		for j := 0; j < h.Size(); j++ {
+			strxor[j] = b0[j] ^ b1[j]
+		}
+		if _, err := h.Write(strxor); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write([]byte{uint8(i)}); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write(dst); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write([]byte{sizeDomain}); err != nil {
+			return nil, err
+		}
+		b1 = h.Sum(nil)
+		copy(res[h.Size()*(i-1):min(h.Size()*i, len(res))], b1)
+	}
+	return res, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
