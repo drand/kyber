@@ -37,8 +37,8 @@ type Suite struct {
 	gt *groupGT
 }
 
-var DEFAULT_DOMAIN_G1 = []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
-var DEFAULT_DOMAIN_G2 = []byte("BLS_SIG_BN254G2_XMD:KECCAK-256_SSWU_RO_NUL_")
+var DEFAULT_DOMAIN_G1 = []byte("BN254G1_XMD:KECCAK-256_SSWU_RO_")
+var DEFAULT_DOMAIN_G2 = []byte("BN254G2_XMD:KECCAK-256_SSWU_RO_")
 
 // NewSuite generates and returns a new BN254 pairing suite.
 func NewSuite() *Suite {
