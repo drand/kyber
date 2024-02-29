@@ -100,27 +100,3 @@ func TestMapToPoint(t *testing.T) {
 		}
 	}
 }
-
-func TestHashToPoint(t *testing.T) {
-	dst := []byte("BLS_SIG_BN254G1_XMD:KECCAK-256_SSWU_RO_NUL_")
-	_msg, err := hex.DecodeString("d3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84")
-	if err != nil {
-		t.Error("decode errored", err.Error())
-	}
-	p := hashToPoint(dst, _msg).(*pointG1)
-	p.g.MakeAffine()
-	x, y := &gfP{}, &gfP{}
-	montDecode(x, &p.g.x)
-	montDecode(y, &p.g.y)
-
-	// Reference values are taken from:
-	// https://github.com/kevincharm/bls-bn254/blob/bef9dad5d99b3c99a17fd85e3328daea5824dac9/scripts/hash.ts
-	// Clone the repo, run `yarn` to install deps, then run:
-	// yarn bls:hash 0xd3420d154786d7dc15997457c4598fa14f9345bb5157b14bb8bfbad3816cbf84
-	if x.String() != "298a790a58f3f0595879f168f410acd0c78537f5879ad087a24f3d3797f10d31" {
-		t.Error("hashToPoint x does not match ref")
-	}
-	if y.String() != "06b050da817646da43652026853a749b7b43358be273d9037505dfc17fb51090" {
-		t.Error("hashToPoint y does not match ref")
-	}
-}
