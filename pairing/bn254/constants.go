@@ -24,6 +24,8 @@ var p = bigFromBase10("218882428718392752222464057452572750886963111572978236626
 // p2 is p, represented as little-endian 64-bit words.
 var p2 = [4]uint64{0x3c208c16d87cfd47, 0x97816a916871ca8d, 0xb85045b68181585d, 0x30644e72e131a029}
 
+var curveB = newGFp(3)
+
 // np is the negative inverse of p, mod 2^256.
 var np = [4]uint64{0x87d20782e4866389, 0x9ede7d651eca6ac9, 0xd8afcbd01833da80, 0xf57a22b791888c6b}
 

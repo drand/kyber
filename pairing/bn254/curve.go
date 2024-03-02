@@ -11,8 +11,6 @@ type curvePoint struct {
 	x, y, z, t gfP
 }
 
-var curveB = newGFp(3)
-
 // curveGen is the generator of G₁.
 var curveGen = &curvePoint{
 	x: *newGFp(1),
@@ -26,7 +24,7 @@ func g(x *gfP) *gfP {
 	y := &gfP{}
 	gfpMul(y, x, x)
 	gfpMul(y, y, x)
-	gfpAdd(y, y, newGFp(3))
+	gfpAdd(y, y, curveB)
 	return y
 }
 
