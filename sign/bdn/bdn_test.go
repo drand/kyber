@@ -5,20 +5,21 @@ import (
 	"testing"
 
 	"github.com/drand/kyber"
+	bls12381 "github.com/drand/kyber-bls12381"
+	"github.com/drand/kyber/pairing"
 	"github.com/drand/kyber/pairing/bn256"
 	"github.com/drand/kyber/sign"
-	"github.com/drand/kyber/sign/bls"
 	"github.com/drand/kyber/util/random"
 	"github.com/stretchr/testify/require"
 )
 
-var suite = bn256.NewSuiteBn256()
-var schemeOnG1 = NewSchemeOnG1(suite)
-var two = suite.Scalar().Add(suite.Scalar().One(), suite.Scalar().One())
-var three = suite.Scalar().Add(two, suite.Scalar().One())
-
 // Reference test for other languages
 func TestBDN_HashPointToR_BN256(t *testing.T) {
+	suite := bn256.NewSuiteBn256()
+	schemeOnG1 := NewSchemeOnG1(suite)
+	two := suite.Scalar().Add(suite.Scalar().One(), suite.Scalar().One())
+	three := suite.Scalar().Add(two, suite.Scalar().One())
+
 	p1 := suite.Point().Base()
 	p2 := suite.Point().Mul(two, suite.Point().Base())
 	p3 := suite.Point().Mul(three, suite.Point().Base())
@@ -45,72 +46,95 @@ func TestBDN_HashPointToR_BN256(t *testing.T) {
 	require.Equal(t, ref, fmt.Sprintf("%x", buf))
 }
 
-func TestBDN_AggregateSignatures(t *testing.T) {
+type schemeMaker func() *Scheme
+
+var testsOnSchemes = []struct {
+	name string
+	test func(t *testing.T, suite pairing.Suite, scheme *Scheme)
+}{
+	{"aggregateSignatures", aggregateSignatures},
+	{"subsetSignature", subsetSignature},
+	{"rogueAttack", rogueAttack},
+}
+
+func TestBDN(t *testing.T) {
+	run := func(name string, suite pairing.Suite, schemeGen func(pairing.Suite) *Scheme) {
+		for _, ts := range testsOnSchemes {
+			t.Run(name+"/"+ts.name, func(t *testing.T) {
+				ts.test(t, suite, schemeGen(suite))
+			})
+		}
+	}
+
+	run("bn256/G1", bn256.NewSuite(), NewSchemeOnG1)
+	//run("bn256/G2", bn256.NewSuite(), NewSchemeOnG2) // G2 does not support hash to point https://github.com/dedis/kyber/pull/428
+	run("bls12/G1", bls12381.NewBLS12381Suite(), NewSchemeOnG1)
+	run("bls12/G2", bls12381.NewBLS12381Suite(), NewSchemeOnG2)
+
+}
+
+func aggregateSignatures(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 	msg := []byte("Hello Boneh-Lynn-Shacham")
-	suite := bn256.NewSuite()
-	private1, public1 := schemeOnG1.NewKeyPair(random.New())
-	private2, public2 := schemeOnG1.NewKeyPair(random.New())
-	sig1, err := schemeOnG1.Sign(private1, msg)
+	private1, public1 := scheme.NewKeyPair(random.New())
+	private2, public2 := scheme.NewKeyPair(random.New())
+	sig1, err := scheme.Sign(private1, msg)
 	require.NoError(t, err)
-	sig2, err := schemeOnG1.Sign(private2, msg)
+	sig2, err := scheme.Sign(private2, msg)
 	require.NoError(t, err)
 
 	mask, _ := sign.NewMask(suite, []kyber.Point{public1, public2}, nil)
 	mask.SetBit(0, true)
 	mask.SetBit(1, true)
 
-	_, err = schemeOnG1.AggregateSignatures([][]byte{sig1}, mask)
+	_, err = scheme.AggregateSignatures([][]byte{sig1}, mask)
 	require.Error(t, err)
 
-	aggregatedSig, err := schemeOnG1.AggregateSignatures([][]byte{sig1, sig2}, mask)
+	aggregatedSig, err := scheme.AggregateSignatures([][]byte{sig1, sig2}, mask)
 	require.NoError(t, err)
 
-	aggregatedKey, err := schemeOnG1.AggregatePublicKeys(mask)
+	aggregatedKey, err := scheme.AggregatePublicKeys(mask)
 
 	sig, err := aggregatedSig.MarshalBinary()
 	require.NoError(t, err)
 
-	err = schemeOnG1.Verify(aggregatedKey, msg, sig)
+	err = scheme.Verify(aggregatedKey, msg, sig)
 	require.NoError(t, err)
 
 	mask.SetBit(1, false)
-	aggregatedKey, err = schemeOnG1.AggregatePublicKeys(mask)
+	aggregatedKey, err = scheme.AggregatePublicKeys(mask)
 
-	err = schemeOnG1.Verify(aggregatedKey, msg, sig)
+	err = scheme.Verify(aggregatedKey, msg, sig)
 	require.Error(t, err)
 }
 
-func TestBDN_SubsetSignature(t *testing.T) {
+func subsetSignature(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 	msg := []byte("Hello Boneh-Lynn-Shacham")
-	suite := bn256.NewSuite()
-	private1, public1 := schemeOnG1.NewKeyPair(random.New())
-	private2, public2 := schemeOnG1.NewKeyPair(random.New())
-	_, public3 := schemeOnG1.NewKeyPair(random.New())
-	sig1, err := schemeOnG1.Sign(private1, msg)
+	private1, public1 := scheme.NewKeyPair(random.New())
+	private2, public2 := scheme.NewKeyPair(random.New())
+	_, public3 := scheme.NewKeyPair(random.New())
+	sig1, err := scheme.Sign(private1, msg)
 	require.NoError(t, err)
-	sig2, err := schemeOnG1.Sign(private2, msg)
+	sig2, err := scheme.Sign(private2, msg)
 	require.NoError(t, err)
 
 	mask, _ := sign.NewMask(suite, []kyber.Point{public1, public3, public2}, nil)
 	mask.SetBit(0, true)
 	mask.SetBit(2, true)
 
-	aggregatedSig, err := schemeOnG1.AggregateSignatures([][]byte{sig1, sig2}, mask)
+	aggregatedSig, err := scheme.AggregateSignatures([][]byte{sig1, sig2}, mask)
 	require.NoError(t, err)
 
-	aggregatedKey, err := schemeOnG1.AggregatePublicKeys(mask)
+	aggregatedKey, err := scheme.AggregatePublicKeys(mask)
 
 	sig, err := aggregatedSig.MarshalBinary()
 	require.NoError(t, err)
 
-	err = schemeOnG1.Verify(aggregatedKey, msg, sig)
+	err = scheme.Verify(aggregatedKey, msg, sig)
 	require.NoError(t, err)
 }
 
-func TestBDN_RogueAttack(t *testing.T) {
+func rogueAttack(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 	msg := []byte("Hello Boneh-Lynn-Shacham")
-	suite := bn256.NewSuite()
-	scheme := bls.NewSchemeOnG1(suite)
 	// honest
 	_, public1 := scheme.NewKeyPair(random.New())
 	// attacker
@@ -121,24 +145,25 @@ func TestBDN_RogueAttack(t *testing.T) {
 
 	pubs := []kyber.Point{public1, rogue}
 
-	sig, err := schemeOnG1.Sign(private2, msg)
+	sig, err := scheme.Sign(private2, msg)
 	require.NoError(t, err)
 
 	// Old scheme not resistant to the attack
-	agg := scheme.AggregatePublicKeys(pubs...)
+	agg := scheme.blsScheme.AggregatePublicKeys(pubs...)
 	require.NoError(t, scheme.Verify(agg, msg, sig))
 
 	// New scheme that should detect
 	mask, _ := sign.NewMask(suite, pubs, nil)
 	mask.SetBit(0, true)
 	mask.SetBit(1, true)
-	agg, err = schemeOnG1.AggregatePublicKeys(mask)
+	agg, err = scheme.AggregatePublicKeys(mask)
 	require.NoError(t, err)
-	require.Error(t, schemeOnG1.Verify(agg, msg, sig))
+	require.Error(t, scheme.Verify(agg, msg, sig))
 }
 
 func Benchmark_BDN_AggregateSigs(b *testing.B) {
 	suite := bn256.NewSuite()
+	schemeOnG1 := NewSchemeOnG1(suite)
 	private1, public1 := schemeOnG1.NewKeyPair(random.New())
 	private2, public2 := schemeOnG1.NewKeyPair(random.New())
 	msg := []byte("Hello many times Boneh-Lynn-Shacham")
