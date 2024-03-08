@@ -46,8 +46,6 @@ func TestBDN_HashPointToR_BN256(t *testing.T) {
 	require.Equal(t, ref, fmt.Sprintf("%x", buf))
 }
 
-type schemeMaker func() *Scheme
-
 var testsOnSchemes = []struct {
 	name string
 	test func(t *testing.T, suite pairing.Suite, scheme *Scheme)
@@ -93,6 +91,7 @@ func aggregateSignatures(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 	require.NoError(t, err)
 
 	aggregatedKey, err := scheme.AggregatePublicKeys(mask)
+	require.NoError(t, err)
 
 	sig, err := aggregatedSig.MarshalBinary()
 	require.NoError(t, err)
@@ -102,6 +101,7 @@ func aggregateSignatures(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 
 	mask.SetBit(1, false)
 	aggregatedKey, err = scheme.AggregatePublicKeys(mask)
+	require.NoError(t, err)
 
 	err = scheme.Verify(aggregatedKey, msg, sig)
 	require.Error(t, err)
@@ -125,6 +125,7 @@ func subsetSignature(t *testing.T, suite pairing.Suite, scheme *Scheme) {
 	require.NoError(t, err)
 
 	aggregatedKey, err := scheme.AggregatePublicKeys(mask)
+	require.NoError(t, err)
 
 	sig, err := aggregatedSig.MarshalBinary()
 	require.NoError(t, err)
@@ -180,4 +181,41 @@ func Benchmark_BDN_AggregateSigs(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		schemeOnG1.AggregateSignatures([][]byte{sig1, sig2}, mask)
 	}
+}
+
+func TestBDNDeprecatedAPIs(t *testing.T) {
+	msg := []byte("Hello Boneh-Lynn-Shacham")
+	suite := bn256.NewSuite()
+	private1, public1 := NewKeyPair(suite, random.New())
+	private2, public2 := NewKeyPair(suite, random.New())
+	sig1, err := Sign(suite, private1, msg)
+	require.NoError(t, err)
+	sig2, err := Sign(suite, private2, msg)
+	require.NoError(t, err)
+
+	mask, _ := sign.NewMask(suite, []kyber.Point{public1, public2}, nil)
+	mask.SetBit(0, true)
+	mask.SetBit(1, true)
+
+	_, err = AggregateSignatures(suite, [][]byte{sig1}, mask)
+	require.Error(t, err)
+
+	aggregatedSig, err := AggregateSignatures(suite, [][]byte{sig1, sig2}, mask)
+	require.NoError(t, err)
+
+	aggregatedKey, err := AggregatePublicKeys(suite, mask)
+	require.NoError(t, err)
+
+	sig, err := aggregatedSig.MarshalBinary()
+	require.NoError(t, err)
+
+	err = Verify(suite, aggregatedKey, msg, sig)
+	require.NoError(t, err)
+
+	mask.SetBit(1, false)
+	aggregatedKey, err = AggregatePublicKeys(suite, mask)
+	require.NoError(t, err)
+
+	err = Verify(suite, aggregatedKey, msg, sig)
+	require.Error(t, err)
 }
