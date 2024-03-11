@@ -37,19 +37,24 @@ type Suite struct {
 	gt *groupGT
 }
 
-var DEFAULT_DOMAIN_G1 = []byte("BN254G1_XMD:KECCAK-256_SSWU_RO_")
-var DEFAULT_DOMAIN_G2 = []byte("BN254G2_XMD:KECCAK-256_SSWU_RO_")
+func newDefaultDomainG1() []byte {
+	return []byte("BN254G1_XMD:KECCAK-256_SSWU_RO_")
+}
+
+func newDefaultDomainG2() []byte {
+	return []byte("BN254G2_XMD:KECCAK-256_SSWU_RO_")
+}
 
 // NewSuite generates and returns a new BN254 pairing suite.
 func NewSuite() *Suite {
 	s := &Suite{commonSuite: &commonSuite{}}
 	s.g1 = &groupG1{
 		commonSuite: s.commonSuite,
-		dst:         DEFAULT_DOMAIN_G1,
+		dst:         newDefaultDomainG1(),
 	}
 	s.g2 = &groupG2{
 		commonSuite: s.commonSuite,
-		dst:         DEFAULT_DOMAIN_G2,
+		dst:         newDefaultDomainG2(),
 	}
 	s.gt = &groupGT{commonSuite: s.commonSuite}
 	return s
@@ -82,11 +87,11 @@ func NewSuiteRand(rand cipher.Stream) *Suite {
 	s := &Suite{commonSuite: &commonSuite{s: rand}}
 	s.g1 = &groupG1{
 		commonSuite: s.commonSuite,
-		dst:         DEFAULT_DOMAIN_G1,
+		dst:         newDefaultDomainG1(),
 	}
 	s.g2 = &groupG2{
 		commonSuite: s.commonSuite,
-		dst:         DEFAULT_DOMAIN_G2,
+		dst:         newDefaultDomainG2(),
 	}
 	s.gt = &groupGT{commonSuite: s.commonSuite}
 	return s
@@ -94,12 +99,16 @@ func NewSuiteRand(rand cipher.Stream) *Suite {
 
 // Set G1 DST
 func (s *Suite) SetDomainG1(dst []byte) {
-	s.g1.dst = dst
+	newDST := make([]byte, len(dst))
+	copy(newDST, dst)
+	s.g1.dst = newDST
 }
 
 // Set G2 DST
 func (s *Suite) SetDomainG2(dst []byte) {
-	s.g2.dst = dst
+	newDST := make([]byte, len(dst))
+	copy(newDST, dst)
+	s.g2.dst = newDST
 }
 
 // G1 returns the group G1 of the BN254 pairing.
