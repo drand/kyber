@@ -66,8 +66,8 @@ func (m *Mask) GetBit(i int) (bool, error) {
 	}
 
 	byteIndex := i / 8
-	mask := byte(1) << uint(i&7)
-	return m.mask[byteIndex]&mask != 0, nil
+	bitIndex := byte(1) << uint(i&7)
+	return m.mask[byteIndex]&bitIndex != 0, nil
 }
 
 // SetBit turns on or off the bit at the given index.
