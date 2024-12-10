@@ -193,7 +193,7 @@ func (p *pointG1) ElementSize() int {
 }
 
 func (p *pointG1) String() string {
-	return "bn254.G1" + p.g.String()
+	return "bn254.G1(DST: " + string(p.dst) + ")" + p.g.String()
 }
 
 func (p *pointG1) Hash(m []byte) kyber.Point {
@@ -342,16 +342,21 @@ func (p *pointG2) Equal(q kyber.Point) bool {
 	return subtle.ConstantTimeCompare(x, y) == 1
 }
 
+// Null returns the point p set to Infinity on G2. Be careful: it mutates p.
+// Consider using Clone if you're using this in a comparison.
 func (p *pointG2) Null() kyber.Point {
 	p.g.SetInfinity()
 	return p
 }
 
+// Base returns the point p set to the generator on G2. Be careful: it mutates p.
+// Consider using Clone first if you're using this in a comparison.
 func (p *pointG2) Base() kyber.Point {
 	p.g.Set(twistGen)
 	return p
 }
 
+// Pick returns the point p set to a random point on G2. Be careful: it mutates p.
 func (p *pointG2) Pick(rand cipher.Stream) kyber.Point {
 	s := mod.NewInt64(0, Order).Pick(rand)
 	p.Base()
@@ -524,16 +529,16 @@ func (p *pointGT) Equal(q kyber.Point) bool {
 	return subtle.ConstantTimeCompare(x, y) == 1
 }
 
+var nullGT = newPointGT().Pair(newPointG1(nil).Null(), newPointG2(nil).Null())
+
 func (p *pointGT) Null() kyber.Point {
-	// TODO: This can be a precomputed constant
-	p.Pair(newPointG1([]byte{}).Null(), newPointG2([]byte{}).Null())
-	return p
+	return nullGT.Clone()
 }
 
+var baseGT = newPointGT().Pair(newPointG1(nil).Base(), newPointG2(nil).Base())
+
 func (p *pointGT) Base() kyber.Point {
-	// TODO: This can be a precomputed constant
-	p.Pair(newPointG1([]byte{}).Base(), newPointG2([]byte{}).Base())
-	return p
+	return baseGT.Clone()
 }
 
 func (p *pointGT) Pick(rand cipher.Stream) kyber.Point {

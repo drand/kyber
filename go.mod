@@ -1,22 +1,22 @@
 module github.com/drand/kyber
 
-go 1.18
+go 1.22.10
 
 require (
-	github.com/cloudflare/circl v1.3.7
-	github.com/consensys/gnark-crypto v0.12.1
+	github.com/cloudflare/circl v1.5.0
+	github.com/consensys/gnark-crypto v0.14.0
 	github.com/drand/kyber-bls12381 v0.3.1
 	github.com/jonboulle/clockwork v0.4.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/protobuf v1.0.11
-	golang.org/x/crypto v0.21.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/crypto v0.30.0
+	golang.org/x/sys v0.28.0
 )
 
 require (
-	github.com/bits-and-blooms/bitset v1.13.0 // indirect
-	github.com/consensys/bavard v0.1.13 // indirect
+	github.com/bits-and-blooms/bitset v1.19.1 // indirect
+	github.com/consensys/bavard v0.1.22 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

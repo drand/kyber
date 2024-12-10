@@ -198,7 +198,7 @@ func (c *commonSuite) Hash() hash.Hash {
 	return sha3.NewLegacyKeccak256()
 }
 
-// XOF returns a newlly instantiated blake2xb XOF function.
+// XOF returns a newly instantiated blake2xb XOF function.
 func (c *commonSuite) XOF(seed []byte) kyber.XOF {
 	return blake2xb.New(seed)
 }
