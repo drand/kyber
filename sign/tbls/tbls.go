@@ -19,7 +19,7 @@ import (
 	"github.com/drand/kyber/pairing"
 	"github.com/drand/kyber/share"
 	"github.com/drand/kyber/sign"
-	"github.com/drand/kyber/sign/bls"
+	"github.com/drand/kyber/sign/bls" //nolint:staticcheck // TBLS extends BLS for threshold signatures
 )
 
 // SigShare encodes a threshold BLS signature share Si = i || v where the 2-byte

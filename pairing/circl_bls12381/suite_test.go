@@ -8,7 +8,7 @@ import (
 
 	"github.com/drand/kyber"
 	this "github.com/drand/kyber/pairing/circl_bls12381"
-	"github.com/drand/kyber/sign/bls"
+	"github.com/drand/kyber/sign/bls" //nolint:staticcheck // Testing deprecated but still functional BLS package
 	"github.com/drand/kyber/sign/tbls"
 	"github.com/drand/kyber/sign/test"
 	"github.com/drand/kyber/util/random"

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/drand/kyber"
 	"github.com/drand/kyber/group/mod"
 	"github.com/drand/kyber/util/random"
+	"github.com/stretchr/testify/require"
 	"go.dedis.ch/protobuf"
-	"golang.org/x/crypto/bn256"
+	"golang.org/x/crypto/bn256" //nolint:staticcheck // Testing interoperability with x/crypto/bn256
 )
 
 func TestScalarMarshal(t *testing.T) {
