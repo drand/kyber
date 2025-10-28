@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/drand/kyber"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -205,4 +206,67 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func Test_pointG1_Equal(t *testing.T) {
+	tests := []struct {
+		name string
+		p1   kyber.Point
+		p2   kyber.Point
+		want bool
+	}{
+		{
+			"g1 inf",
+			newPointG1(nil).Null(),
+			newPointG1(nil).Null(),
+			true,
+		}, {
+			"g1 base",
+			newPointG1(nil).Base(),
+			newPointG1(nil).Base(),
+			true,
+		}, {
+			"g1 base!=inf",
+			newPointG1(nil).Base(),
+			newPointG1(nil).Null(),
+			false,
+		}, {
+			"g2 base!=inf",
+			newPointG2(nil).Base(),
+			newPointG2(nil).Null(),
+			false,
+		}, {
+			"g2 inf",
+			newPointG2(nil).Null(),
+			newPointG2(nil).Null(),
+			true,
+		}, {
+			"g2 base",
+			newPointG2(nil).Base(),
+			newPointG2(nil).Base(),
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := tt.p1
+			if got := p.Equal(tt.p2); got != tt.want {
+				t.Errorf("Equal() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_pointGT_Null(t *testing.T) {
+	inf := newPointGT().Pair(newPointG1([]byte{}).Null(), newPointG2([]byte{}).Null())
+	if !inf.Equal(newPointGT().Null()) {
+		t.Fatal("Null isn't the same null")
+	}
+}
+
+func Test_pointGT_Base(t *testing.T) {
+	base := newPointGT().Pair(newPointG1([]byte{}).Base(), newPointG2([]byte{}).Base())
+	if !base.Equal(newPointGT().Base()) {
+		t.Fatal("Null isn't the same null")
+	}
 }

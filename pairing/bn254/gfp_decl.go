@@ -6,7 +6,7 @@ package bn254
 // This file contains forward declarations for the architecture-specific
 // assembly implementations of these functions, provided that they exist.
 
-// go:noescape
+//go:noescape
 func gfpNeg(c, a *gfP)
 
 //go:noescape

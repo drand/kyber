@@ -186,6 +186,7 @@ func (c *twistPoint) MakeAffine() {
 		g.x.SetZero()
 		g.y.SetOne()
 		g.t.SetZero()
+		c.Set(g)
 		return
 	}
 

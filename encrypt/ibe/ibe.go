@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
 	"github.com/drand/kyber"
 	"github.com/drand/kyber/group/mod"
 	"github.com/drand/kyber/pairing"
@@ -70,7 +71,7 @@ func EncryptCCAonG1(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphe
 		return nil, err
 	}
 	// 4. Compute U = rP
-	U := s.G1().Point().Mul(r, s.G1().Point().Base())
+	U := s.G1().Point().Mul(r, nil)
 
 	// 5. Compute V = sigma XOR H2(rGid)
 	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
@@ -124,7 +125,7 @@ func DecryptCCAonG1(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	rP := s.G1().Point().Mul(r, s.G1().Point().Base())
+	rP := s.G1().Point().Mul(r, nil)
 	if !rP.Equal(c.U) {
 		return nil, fmt.Errorf("invalid proof: rP check failed")
 	}
@@ -165,7 +166,7 @@ func EncryptCCAonG2(s pairing.Suite, master kyber.Point, ID, msg []byte) (*Ciphe
 		return nil, err
 	}
 	// 4. Compute U = rP
-	U := s.G2().Point().Mul(r, s.G2().Point().Base())
+	U := s.G2().Point().Mul(r, nil)
 
 	// 5. Compute V = sigma XOR H2(rGid)
 	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
@@ -219,9 +220,9 @@ func DecryptCCAonG2(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	rP := s.G2().Point().Mul(r, s.G2().Point().Base())
+	rP := s.G2().Point().Mul(r, nil)
 	if !rP.Equal(c.U) {
-		return nil, fmt.Errorf("invalid proof: rP check failed")
+		return nil, fmt.Errorf("invalid proof: rP check failed on msg %s, r %x", msg, r)
 	}
 	return msg, nil
 }
@@ -229,6 +230,10 @@ func DecryptCCAonG2(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 // hash sigma and msg to get r
 func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 	h := s.Hash()
+
+	if h.Size() != s.G1().ScalarLen() {
+		return nil, fmt.Errorf("hash size mismatch with scalar length %d != %d", h.Size(), s.G1().ScalarLen())
+	}
 
 	if _, err := h.Write(H3Tag()); err != nil {
 		return nil, fmt.Errorf("err hashing h3 tag: %v", err)
@@ -339,13 +344,15 @@ type CiphertextCPA struct {
 // H1: {0,1}^n -> G1
 // H2: GT -> {0,1}^n
 // ID: Qid = H1(ID) = xP \in G2
-// 	secret did = s*Qid \in G2
+//
+//	secret did = s*Qid \in G2
+//
 // Encrypt:
-// - random r scalar
-// - Gid = e(Ppub, r*Qid) == e(P, P)^(x*s*r) \in GT
-// 		 = GidT
-// - U = rP \in G1,
-// - V = M XOR H2(Gid)) = M XOR H2(GidT)  \in {0,1}^n
+//   - random r scalar
+//   - Gid = e(Ppub, r*Qid) == e(P, P)^(x*s*r) \in GT
+//     = GidT
+//   - U = rP \in G1,
+//   - V = M XOR H2(Gid)) = M XOR H2(GidT)  \in {0,1}^n
 func EncryptCPAonG1(s pairing.Suite, basePoint, public kyber.Point, ID, msg []byte) (*CiphertextCPA, error) {
 	if len(msg)>>16 > 0 {
 		// we're using blake2 as XOF which only outputs 2^16-1 length
@@ -382,9 +389,9 @@ func EncryptCPAonG1(s pairing.Suite, basePoint, public kyber.Point, ID, msg []by
 // SigGroup = G2 (large secret identities)
 // KeyGroup = G1 (short master public keys)
 // Decrypt:
-// - V XOR H2(e(U, did)) = V XOR H2(e(rP, s*Qid))
-//   = V XOR H2(e(P, P)^(r*s*x))
-//   = V XOR H2(GidT) = M
+//   - V XOR H2(e(U, did)) = V XOR H2(e(rP, s*Qid))
+//     = V XOR H2(e(P, P)^(r*s*x))
+//     = V XOR H2(GidT) = M
 func DecryptCPAonG1(s pairing.Suite, private kyber.Point, c *CiphertextCPA) ([]byte, error) {
 	GidT := s.Pair(c.RP, private)
 	hGidT, err := gtToHash(s, GidT, len(c.C))
