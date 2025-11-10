@@ -14,8 +14,6 @@ import (
 	"github.com/drand/kyber/util/random"
 )
 
-var one = big.NewInt(1)
-var two = big.NewInt(2)
 var marshalScalarID = [8]byte{'m', 'o', 'd', '.', 'i', 'n', 't', ' '}
 
 // ByteOrder denotes the endianness of the operation.

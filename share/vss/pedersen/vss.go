@@ -6,7 +6,6 @@ package vss
 
 import (
 	"bytes"
-	"crypto/cipher"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -29,8 +28,7 @@ type Suite interface {
 // Dealer encapsulates for creating and distributing the shares and for
 // replying to any Responses.
 type Dealer struct {
-	suite  Suite
-	reader cipher.Stream
+	suite Suite
 	// long is the longterm key of the Dealer
 	long          kyber.Scalar
 	pub           kyber.Point
@@ -311,6 +309,7 @@ type Verifier struct {
 //   - its longterm secret key
 //   - the longterm dealer public key
 //   - the list of public key of verifiers. The list MUST include the public key of this Verifier also.
+//
 // The security parameter t of the secret sharing scheme is automatically set to
 // a default safe value. If a different t value is required, it is possible to set
 // it with `verifier.SetT()`.
@@ -724,15 +723,6 @@ func MinimumT(n int) int {
 
 func validT(t int, verifiers []kyber.Point) bool {
 	return t >= 2 && t <= len(verifiers) && int(uint32(t)) == t
-}
-
-func deriveH(suite Suite, verifiers []kyber.Point) kyber.Point {
-	var b bytes.Buffer
-	for _, v := range verifiers {
-		_, _ = v.MarshalTo(&b)
-	}
-	base := suite.Point().Pick(suite.XOF(b.Bytes()))
-	return base
 }
 
 func findPub(verifiers []kyber.Point, idx uint32) (kyber.Point, bool) {

@@ -3,7 +3,7 @@ package bn256
 import (
 	"testing"
 
-	"github.com/drand/kyber/sign/bls"
+	"github.com/drand/kyber/sign/bls" //nolint:staticcheck // Testing deprecated but still functional BLS package
 	"github.com/drand/kyber/sign/test"
 	"github.com/drand/kyber/util/random"
 	"github.com/stretchr/testify/require"

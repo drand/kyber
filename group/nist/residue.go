@@ -2,7 +2,7 @@ package nist
 
 import (
 	"crypto/cipher"
-	"crypto/dsa"
+	"crypto/dsa" //nolint:staticcheck // Only using Parameters struct for DSA parameter compatibility
 	"errors"
 	"fmt"
 	"io"
