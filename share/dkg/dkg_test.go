@@ -13,7 +13,6 @@ import (
 	"github.com/drand/kyber/sign/schnorr"
 	"github.com/drand/kyber/sign/tbls"
 	"github.com/drand/kyber/util/random"
-	clock "github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +25,6 @@ type TestNode struct {
 	proto   *Protocol
 	phaser  *TimePhaser
 	board   *TestBoard
-	clock   *clock.FakeClock
 }
 
 func NewTestNode(s Suite, index int) *TestNode {
