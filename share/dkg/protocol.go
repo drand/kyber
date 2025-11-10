@@ -3,7 +3,6 @@ package dkg
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -79,14 +78,7 @@ type Protocol struct {
 	skipVerif bool
 }
 
-// XXX TO DELETE
-func printNodes(list []Node) string {
-	var arr []string
-	for _, node := range list {
-		arr = append(arr, fmt.Sprintf("[%d : %s]", node.Index, node.Public))
-	}
-	return strings.Join(arr, "\n")
-}
+// Protocol is the interface that represents the protocol. It is implemented by
 
 func NewProtocol(c *Config, b Board, phaser Phaser, skipVerification bool) (*Protocol, error) {
 	dkg, err := NewDistKeyHandler(c)

@@ -68,7 +68,6 @@ func (P *extPoint) UnmarshalFrom(r io.Reader) (int, error) {
 //	(X1/Z1,Y1/Z1) == (X2/Z2,Y2/Z2)
 //		iff
 //	(X1*Z2,Y1*Z2) == (X2*Z1,Y2*Z1)
-//
 func (P *extPoint) Equal(CP2 kyber.Point) bool {
 	P2 := CP2.(*extPoint)
 	var t1, t2 mod.Int
@@ -118,14 +117,6 @@ func (P *extPoint) normalize() {
 	P.Y.Mul(&P.Y, &P.Z)
 	P.Z.V.SetInt64(1)
 	P.T.Mul(&P.X, &P.Y)
-}
-
-// Check the validity of the T coordinate
-func (P *extPoint) checkT() {
-	var t1, t2 mod.Int
-	if !t1.Mul(&P.X, &P.Y).Equal(t2.Mul(&P.Z, &P.T)) {
-		panic("oops")
-	}
 }
 
 func (P *extPoint) Embed(data []byte, rand cipher.Stream) kyber.Point {
@@ -230,7 +221,6 @@ func (P *extPoint) double() {
 // Currently doesn't implement the optimization of
 // switching between projective and extended coordinates during
 // scalar multiplication.
-//
 func (P *extPoint) Mul(s kyber.Scalar, G kyber.Point) kyber.Point {
 	v := s.(*mod.Int).V
 	if G == nil {
@@ -272,7 +262,6 @@ func (P *extPoint) Mul(s kyber.Scalar, G kyber.Point) kyber.Point {
 // special case with curve parameter a=-1.
 // We leave the task of hyperoptimization to curve-specific implementations
 // such as the ed25519 package.
-//
 type ExtendedCurve struct {
 	curve          // generic Edwards curve functionality
 	null  extPoint // Constant identity/null point (0,1)

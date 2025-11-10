@@ -37,7 +37,7 @@ main package is.
 Installing
 ----------
 
-First make sure you have [Go](https://golang.org) version 1.11 or newer installed.
+First make sure you have [Go](https://golang.org) version 1.25 or newer installed.
 
 The basic crypto library requires only Go and a few
 third-party Go-language dependencies that can be installed automatically
@@ -47,7 +47,7 @@ as follows:
 
 You can recursively test all the packages in the library as follows:
 
-	go test -v ./...
+	go test -race -v ./...
 
 A note on deriving shared secrets
 ---------------------------------

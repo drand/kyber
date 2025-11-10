@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	bls "github.com/drand/kyber-bls12381"
-	sign "github.com/drand/kyber/sign/bls"
+	sign "github.com/drand/kyber/sign/bls" //nolint:staticcheck // Testing deprecated but still functional BLS package
 )
 
 func TestBLS12381(t *testing.T) {

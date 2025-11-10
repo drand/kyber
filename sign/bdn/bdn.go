@@ -18,7 +18,7 @@ import (
 	"github.com/drand/kyber/group/mod"
 	"github.com/drand/kyber/pairing"
 	"github.com/drand/kyber/sign"
-	"github.com/drand/kyber/sign/bls"
+	"github.com/drand/kyber/sign/bls" //nolint:staticcheck // BDN extends BLS with rogue key attack protection
 	"golang.org/x/crypto/blake2s"
 )
 

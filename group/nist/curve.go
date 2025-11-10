@@ -175,6 +175,7 @@ func (p *curvePoint) MarshalSize() int {
 }
 
 func (p *curvePoint) MarshalBinary() ([]byte, error) {
+	//nolint:staticcheck // Using elliptic.Marshal for compatibility with existing kyber interface
 	return elliptic.Marshal(p.c, p.x, p.y), nil
 }
 
@@ -187,6 +188,7 @@ func (p *curvePoint) UnmarshalBinary(buf []byte) error {
 		c |= b
 	}
 	if c != 0 {
+		//nolint:staticcheck // Using elliptic.Unmarshal for compatibility with existing kyber interface
 		p.x, p.y = elliptic.Unmarshal(p.c, buf)
 		if p.x == nil || !p.Valid() {
 			return errors.New("invalid elliptic curve point")

@@ -138,7 +138,6 @@ func testScalarClone(t *testing.T, g kyber.Group, rand cipher.Stream) {
 // Returns a log of the pseudorandom Points produced in the test,
 // for comparison across alternative implementations
 // that are supposed to be equivalent.
-//
 func testGroup(t *testing.T, g kyber.Group, rand cipher.Stream) []kyber.Point {
 	t.Logf("\nTesting group '%s': %d-byte Point, %d-byte Scalar\n",
 		g.String(), g.PointLen(), g.ScalarLen())
@@ -325,10 +324,10 @@ func testGroup(t *testing.T, g kyber.Group, rand cipher.Stream) []kyber.Point {
 		buf.Reset()
 		s := g.Scalar().Pick(rand)
 		if _, err := s.MarshalTo(buf); err != nil {
-			t.Errorf("encoding of secret fails: " + err.Error())
+			t.Errorf("encoding of secret fails: %v", err)
 		}
 		if _, err := stmp.UnmarshalFrom(buf); err != nil {
-			t.Errorf("decoding of secret fails: " + err.Error())
+			t.Errorf("decoding of secret fails: %v", err)
 		}
 		if !stmp.Equal(s) {
 			t.Errorf("decoding produces different secret than encoded")
@@ -337,10 +336,10 @@ func testGroup(t *testing.T, g kyber.Group, rand cipher.Stream) []kyber.Point {
 		buf.Reset()
 		p := g.Point().Pick(rand)
 		if _, err := p.MarshalTo(buf); err != nil {
-			t.Errorf("encoding of point fails: " + err.Error())
+			t.Errorf("encoding of point fails: %v", err)
 		}
 		if _, err := ptmp.UnmarshalFrom(buf); err != nil {
-			t.Errorf("decoding of point fails: " + err.Error())
+			t.Errorf("decoding of point fails: %v", err)
 		}
 		if !ptmp.Equal(p) {
 			t.Errorf("decoding produces different point than encoded")

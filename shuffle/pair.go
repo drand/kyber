@@ -67,11 +67,6 @@ type ega5 struct {
 	Ztau   kyber.Scalar
 }
 
-// P and V, step 5: simple k-shuffle proof
-type ega6 struct {
-	SimpleShuffle
-}
-
 // PairShuffle creates a proof of the correctness of a shuffle
 // of a series of ElGamal pairs.
 //
