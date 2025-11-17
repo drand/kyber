@@ -132,6 +132,94 @@ func DecryptCCAonG1(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 	return msg, nil
 }
 
+// EncryptCCAonG1WithAD encrypts with additional data bound via commitment.
+// different AD values produce different ciphertexts for replay attack prevention.
+func EncryptCCAonG1WithAD(s pairing.Suite, master kyber.Point, ID, msg, additionalData []byte) (*Ciphertext, error) {
+	if len(msg) > s.Hash().Size() {
+		return nil, errors.New("plaintext too long for the hash function provided")
+	}
+
+	// 1. Compute Gid = e(master,Q_id)
+	hG2, ok := s.G2().Point().(kyber.HashablePoint)
+	if !ok {
+		return nil, errors.New("point needs to implement `kyber.HashablePoint`")
+	}
+	Qid := hG2.Hash(ID)
+	Gid := s.Pair(master, Qid)
+
+	// 2. Derive random sigma
+	sigma := make([]byte, len(msg))
+	if _, err := rand.Read(sigma); err != nil {
+		return nil, fmt.Errorf("err reading rand sigma: %v", err)
+	}
+	// 3. derive r with additional data included in hash
+	r, err := h3WithAD(s, sigma, msg, additionalData)
+	if err != nil {
+		return nil, err
+	}
+	// 4. Compute U = rP
+	U := s.G1().Point().Mul(r, nil)
+
+	// 5. Compute V = sigma XOR H2(rGid)
+	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
+	hrGid, err := gtToHash(s, rGid, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	V := xor(sigma, hrGid)
+
+	// 6. Compute M XOR H(sigma)
+	hsigma, err := h4(s, sigma, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	W := xor(msg, hsigma)
+
+	return &Ciphertext{
+		U: U,
+		V: V,
+		W: W,
+	}, nil
+}
+
+// DecryptCCAonG1WithAD decrypts with additional data verification.
+// wrong AD causes cryptographic failure at rP check.
+func DecryptCCAonG1WithAD(s pairing.Suite, private kyber.Point, c *Ciphertext, additionalData []byte) ([]byte, error) {
+	if len(c.W) > s.Hash().Size() {
+		return nil, errors.New("ciphertext too long for the hash function provided")
+	}
+
+	// 1. Compute sigma = V XOR H2(e(rP,private))
+	rGid := s.Pair(c.U, private)
+	hrGid, err := gtToHash(s, rGid, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+	if len(hrGid) != len(c.V) {
+		return nil, fmt.Errorf("XorSigma is of invalid length: exp %d vs got %d", len(hrGid), len(c.V))
+	}
+	sigma := xor(hrGid, c.V)
+
+	// 2. Compute M = W XOR H4(sigma)
+	hsigma, err := h4(s, sigma, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+
+	msg := xor(hsigma, c.W)
+
+	// 3. Check U = rP with additional data
+	r, err := h3WithAD(s, sigma, msg, additionalData)
+	if err != nil {
+		return nil, err
+	}
+	rP := s.G1().Point().Mul(r, nil)
+	if !rP.Equal(c.U) {
+		return nil, fmt.Errorf("invalid proof: rP check failed")
+	}
+	return msg, nil
+}
+
 // EncryptCCAonG2 implements the CCA identity-based encryption scheme from
 // https://crypto.stanford.edu/~dabo/pubs/papers/bfibe.pdf for more information
 // about the scheme.
@@ -227,8 +315,101 @@ func DecryptCCAonG2(s pairing.Suite, private kyber.Point, c *Ciphertext) ([]byte
 	return msg, nil
 }
 
+// EncryptCCAonG2WithAD encrypts with additional data bound via commitment.
+// different AD values produce different ciphertexts for replay attack prevention.
+func EncryptCCAonG2WithAD(s pairing.Suite, master kyber.Point, ID, msg, additionalData []byte) (*Ciphertext, error) {
+	if len(msg) > s.Hash().Size() {
+		return nil, errors.New("plaintext too long for the hash function provided")
+	}
+
+	// 1. Compute Gid = e(Q_id, master)
+	hG2, ok := s.G1().Point().(kyber.HashablePoint)
+	if !ok {
+		return nil, errors.New("point needs to implement `kyber.HashablePoint`")
+	}
+	Qid := hG2.Hash(ID)
+	Gid := s.Pair(Qid, master)
+
+	// 2. Derive random sigma
+	sigma := make([]byte, len(msg))
+	if _, err := rand.Read(sigma); err != nil {
+		return nil, fmt.Errorf("err reading rand sigma: %v", err)
+	}
+	// 3. Derive r from sigma, msg, and additionalData
+	r, err := h3WithAD(s, sigma, msg, additionalData)
+	if err != nil {
+		return nil, err
+	}
+	// 4. Compute U = rP
+	U := s.G2().Point().Mul(r, nil)
+
+	// 5. Compute V = sigma XOR H2(rGid)
+	rGid := Gid.Mul(r, Gid) // even in Gt, it's additive notation
+	hrGid, err := gtToHash(s, rGid, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	V := xor(sigma, hrGid)
+
+	// 6. Compute M XOR H(sigma)
+	hsigma, err := h4(s, sigma, len(msg))
+	if err != nil {
+		return nil, err
+	}
+	W := xor(msg, hsigma)
+
+	return &Ciphertext{
+		U: U,
+		V: V,
+		W: W,
+	}, nil
+}
+
+// DecryptCCAonG2WithAD decrypts with additional data verification.
+// wrong AD causes cryptographic failure at rP check.
+func DecryptCCAonG2WithAD(s pairing.Suite, private kyber.Point, c *Ciphertext, additionalData []byte) ([]byte, error) {
+	if len(c.W) > s.Hash().Size() {
+		return nil, errors.New("ciphertext too long for the hash function provided")
+	}
+
+	// 1. Compute sigma = V XOR H2(e(rP,private))
+	rGid := s.Pair(private, c.U)
+	hrGid, err := gtToHash(s, rGid, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+	if len(hrGid) != len(c.V) {
+		return nil, fmt.Errorf("XorSigma is of invalid length: exp %d vs got %d", len(hrGid), len(c.V))
+	}
+	sigma := xor(hrGid, c.V)
+
+	// 2. Compute M = W XOR H4(sigma)
+	hsigma, err := h4(s, sigma, len(c.W))
+	if err != nil {
+		return nil, err
+	}
+
+	msg := xor(hsigma, c.W)
+
+	// 3. verify rP check with additional data
+	r, err := h3WithAD(s, sigma, msg, additionalData)
+	if err != nil {
+		return nil, err
+	}
+	rP := s.G2().Point().Mul(r, nil)
+	if !rP.Equal(c.U) {
+		return nil, fmt.Errorf("invalid proof: rP check failed on msg %s, r %x", msg, r)
+	}
+	return msg, nil
+}
+
 // hash sigma and msg to get r
 func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
+	return h3WithAD(s, sigma, msg, nil)
+}
+
+// h3WithAD includes additional data in the hash for r generation
+func h3WithAD(s pairing.Suite, sigma, msg, additionalData []byte) (kyber.Scalar, error) {
 	h := s.Hash()
 
 	if h.Size() != s.G1().ScalarLen() {
@@ -242,7 +423,10 @@ func h3(s pairing.Suite, sigma, msg []byte) (kyber.Scalar, error) {
 		return nil, fmt.Errorf("err hashing sigma: %v", err)
 	}
 	_, _ = h.Write(msg)
-	// we hash it a first time: buffer = hash("IBE-H3" || sigma || msg)
+	if len(additionalData) > 0 {
+		_, _ = h.Write(additionalData)
+	}
+	// hash("IBE-H3" || sigma || msg || additionalData)
 	buffer := h.Sum(nil)
 
 	hashable, ok := s.G1().Scalar().(*mod.Int)
