@@ -259,3 +259,177 @@ func TestCPAEncryptOnG1(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, msg, msg2)
 }
+
+func TestEncryptDecryptWithAdditionalData(t *testing.T) {
+	t.Run("OnG1_WithCorrectAD", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(1)
+		msg := []byte("Hello World\n")
+		additionalData := []byte("transaction_hash_0x1234")
+
+		c, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, additionalData)
+		require.NoError(t, err)
+		msg2, err := DecryptCCAonG1WithAD(suite, sQid, c, additionalData)
+		require.NoError(t, err)
+		require.Equal(t, msg, msg2)
+	})
+
+	t.Run("OnG2_WithCorrectAD", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(2)
+		msg := []byte("Hello World\n")
+		additionalData := []byte("transaction_hash_0x1234")
+
+		c, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, additionalData)
+		require.NoError(t, err)
+		msg2, err := DecryptCCAonG2WithAD(suite, sQid, c, additionalData)
+		require.NoError(t, err)
+		require.Equal(t, msg, msg2)
+	})
+
+	t.Run("OnG1_WithIncorrectAD_FailsDecryption", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(1)
+		msg := []byte("Hello World\n")
+		correctAD := []byte("transaction_hash_0x1234")
+		incorrectAD := []byte("transaction_hash_0x5678")
+
+		c, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, correctAD)
+		require.NoError(t, err)
+
+		// Attempt to decrypt with incorrect additional data should fail
+		_, err = DecryptCCAonG1WithAD(suite, sQid, c, incorrectAD)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+
+	t.Run("OnG2_WithIncorrectAD_FailsDecryption", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(2)
+		msg := []byte("Hello World\n")
+		correctAD := []byte("transaction_hash_0x1234")
+		incorrectAD := []byte("transaction_hash_0x5678")
+
+		c, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, correctAD)
+		require.NoError(t, err)
+
+		// Attempt to decrypt with incorrect additional data should fail
+		_, err = DecryptCCAonG2WithAD(suite, sQid, c, incorrectAD)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+
+	t.Run("OnG1_WithMissingAD_FailsDecryption", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(1)
+		msg := []byte("Hello World\n")
+		additionalData := []byte("transaction_hash_0x1234")
+
+		c, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, additionalData)
+		require.NoError(t, err)
+
+		// Attempt to decrypt without additional data should fail
+		_, err = DecryptCCAonG1WithAD(suite, sQid, c, nil)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+
+	t.Run("OnG2_WithMissingAD_FailsDecryption", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(2)
+		msg := []byte("Hello World\n")
+		additionalData := []byte("transaction_hash_0x1234")
+
+		c, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, additionalData)
+		require.NoError(t, err)
+
+		// Attempt to decrypt without additional data should fail
+		_, err = DecryptCCAonG2WithAD(suite, sQid, c, nil)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+
+	t.Run("OnG1_WithEmptyAD", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(1)
+		msg := []byte("Hello World\n")
+		emptyAD := []byte{}
+
+		c, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, emptyAD)
+		require.NoError(t, err)
+		msg2, err := DecryptCCAonG1WithAD(suite, sQid, c, emptyAD)
+		require.NoError(t, err)
+		require.Equal(t, msg, msg2)
+	})
+
+	t.Run("OnG2_WithEmptyAD", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(2)
+		msg := []byte("Hello World\n")
+		emptyAD := []byte{}
+
+		c, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, emptyAD)
+		require.NoError(t, err)
+		msg2, err := DecryptCCAonG2WithAD(suite, sQid, c, emptyAD)
+		require.NoError(t, err)
+		require.Equal(t, msg, msg2)
+	})
+}
+
+func TestDifferentADProducesDifferentCiphertexts(t *testing.T) {
+	t.Run("OnG1", func(t *testing.T) {
+		suite, Ppub, ID, _, _, _ := newSetting(1)
+		msg := []byte("Hello World\n")
+		ad1 := []byte("context1")
+		ad2 := []byte("context2")
+
+		c1, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, ad1)
+		require.NoError(t, err)
+		c2, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, ad2)
+		require.NoError(t, err)
+
+		// Different AD should produce different U points (due to different r values)
+		require.False(t, c1.U.Equal(c2.U), "Different AD should produce different ciphertexts")
+	})
+
+	t.Run("OnG2", func(t *testing.T) {
+		suite, Ppub, ID, _, _, _ := newSetting(2)
+		msg := []byte("Hello World\n")
+		ad1 := []byte("context1")
+		ad2 := []byte("context2")
+
+		c1, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, ad1)
+		require.NoError(t, err)
+		c2, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, ad2)
+		require.NoError(t, err)
+
+		// Different AD should produce different U points (due to different r values)
+		require.False(t, c1.U.Equal(c2.U), "Different AD should produce different ciphertexts")
+	})
+}
+
+func TestReplayAttackPrevention(t *testing.T) {
+	t.Run("OnG1_SameCiphertextDifferentContext", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(1)
+		msg := []byte("payment:100USD")
+		context1 := []byte("recipient:alice")
+		context2 := []byte("recipient:bob")
+
+		// Encrypt payment for Alice
+		ciphertext, err := EncryptCCAonG1WithAD(suite, Ppub, ID, msg, context1)
+		require.NoError(t, err)
+
+		// Try to "replay" the ciphertext in Bob's context - should fail
+		_, err = DecryptCCAonG1WithAD(suite, sQid, ciphertext, context2)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+
+	t.Run("OnG2_SameCiphertextDifferentContext", func(t *testing.T) {
+		suite, Ppub, ID, sQid, _, _ := newSetting(2)
+		msg := []byte("payment:100USD")
+		context1 := []byte("recipient:alice")
+		context2 := []byte("recipient:bob")
+
+		// Encrypt payment for Alice
+		ciphertext, err := EncryptCCAonG2WithAD(suite, Ppub, ID, msg, context1)
+		require.NoError(t, err)
+
+		// Try to "replay" the ciphertext in Bob's context - should fail
+		_, err = DecryptCCAonG2WithAD(suite, sQid, ciphertext, context2)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid proof")
+	})
+}
