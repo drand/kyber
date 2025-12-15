@@ -9,12 +9,12 @@ require (
 	github.com/stretchr/testify v1.11.1
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/protobuf v1.0.11
-	golang.org/x/crypto v0.43.0
-	golang.org/x/sys v0.38.0
+	golang.org/x/crypto v0.46.0
+	golang.org/x/sys v0.39.0
 )
 
 require (
-	github.com/bits-and-blooms/bitset v1.24.3 // indirect
+	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
